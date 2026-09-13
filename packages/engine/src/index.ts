@@ -21,3 +21,5 @@ export {
   scenarioSchema,
   scenarioSpecSchema,
 } from "./schema.js";
+export { type FrameSummary, summarizeFrame } from "./wire/frame.js";
+export { type PcapRecord, writePcap } from "./wire/pcap.js";
