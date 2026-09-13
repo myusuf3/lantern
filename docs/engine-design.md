@@ -68,8 +68,10 @@ Any of `mac`, `ip`, `routes`, and `neighbors` may be omitted.
 
 - MACs for host and router interfaces from a fixed locally-administered
   OUI plus a counter in declaration order; switch ports get none
-- one /24 per broadcast domain (the set of links joined by switches), hosts
-  numbered in declaration order
+- one /24 per broadcast domain (the set of links joined by switches), with
+  domains numbered in link order, so the first link's domain is 10.0.1.0/24
+- with `warm_arp: true` on the network, every node's ARP table is pre-filled
+  with every other interface on its subnets, for lessons that are past ARP
 - connected routes for every interface, a host default route to the first
   router in its broadcast domain, router static routes by shortest path
 - `neighbors` left empty unless declared
