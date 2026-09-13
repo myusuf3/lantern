@@ -1,0 +1,1 @@
+The laptop now knows the router's MAC and the parked ping can go. Look at the [[frame]] it builds. The Ethernet destination is the router's MAC. The IP destination is the server. Two layers, two addresses, two different questions: who gets this next, and who gets it in the end.

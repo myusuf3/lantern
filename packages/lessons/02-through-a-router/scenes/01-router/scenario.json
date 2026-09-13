@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "network": {
+    "nodes": [
+      { "id": "laptop", "kind": "host", "interfaces": [{ "name": "eth0", "link": "left" }] },
+      {
+        "id": "router",
+        "kind": "router",
+        "interfaces": [{ "name": "eth0", "link": "left" }, { "name": "eth1", "link": "right" }]
+      },
+      { "id": "server", "kind": "host", "interfaces": [{ "name": "eth0", "link": "right" }] }
+    ],
+    "links": [
+      { "id": "left", "a": "laptop/eth0", "b": "router/eth0" },
+      { "id": "right", "a": "router/eth1", "b": "server/eth0" }
+    ]
+  },
+  "actions": [{ "action": "ping", "from": { "name": "laptop" }, "to": { "name": "server" } }]
+}

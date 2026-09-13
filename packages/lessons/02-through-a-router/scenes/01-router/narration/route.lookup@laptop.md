@@ -1,0 +1,1 @@
+Same question as before: where does 10.0.2.10 live? This time the [[routing table]] answers "not on any cable of mine". So it falls back to the [[default route]]: hand it to the [[gateway]] at 10.0.1.1. The laptop is not going to talk to the server. It is going to talk to the router and trust it.

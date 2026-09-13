@@ -1,0 +1,9 @@
+{
+  "title": "Through a router",
+  "summary": "The server moves to another subnet. The laptop can no longer reach it by shouting, so it hands the packet to a machine whose job is to carry it across.",
+  "show": { "arp": true, "routes": true },
+  "scenes": [
+    { "id": "01-router", "title": "Through a router" },
+    { "id": "02-switch", "title": "Adding a switch" }
+  ]
+}

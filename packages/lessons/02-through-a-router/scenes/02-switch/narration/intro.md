@@ -1,0 +1,1 @@
+One more box, and it is invisible to everyone. A [[switch]] has no IP address, and no MAC address that anything talks to. It has ports and a memory. Same ping as before; watch what the switch does with the first frame it has ever seen.

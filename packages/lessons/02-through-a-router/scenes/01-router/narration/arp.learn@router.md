@@ -1,0 +1,1 @@
+The router builds a brand new [[frame]]: its own eth1 MAC as source, the server's MAC as destination. Inside is the IP header the laptop wrote, minus one from TTL. The frame changed completely. The [[packet]] did not.

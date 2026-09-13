@@ -1,0 +1,1 @@
+The switch does not know where the destination MAC lives, or the destination is broadcast, so it sends the frame out every other port. [[flooding|Flooding]] is how a switch behaves before it has learned anything. Notice the frame is the same one that came in, byte for byte.
