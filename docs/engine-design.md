@@ -295,7 +295,8 @@ document above.
       { "id": "laptop", "kind": "host",   "interfaces": [{ "name": "eth0", "link": "l1" }] },
       { "id": "sw1",    "kind": "switch", "interfaces": [{ "name": "p1", "link": "l1" }, { "name": "p2", "link": "l2" }] },
       { "id": "r1",     "kind": "router", "interfaces": [{ "name": "eth0", "link": "l2" }, { "name": "eth1", "link": "l3" }] },
-      { "id": "server", "kind": "host",   "interfaces": [{ "name": "eth0", "link": "l3" }] }
+      { "id": "server", "kind": "host",   "interfaces": [{ "name": "eth0", "link": "l3" }],
+        "neighbors": [{ "ip": "10.0.2.1", "mac": "02:00:00:00:00:03" }] }
     ],
     "links": [
       { "id": "l1", "a": "laptop/eth0", "b": "sw1/p1" },
@@ -303,7 +304,10 @@ document above.
       { "id": "l3", "a": "r1/eth1",     "b": "server/eth0" }
     ]
   },
-  "actions": [{ "action": "ping", "from": { "name": "laptop" }, "to": { "name": "server" } }]
+  "actions": [
+    { "action": "ping",       "from": { "name": "laptop" }, "to": { "name": "server" }, "count": 2 },
+    { "action": "traceroute", "from": { "name": "laptop" }, "to": { "name": "server" }, "max_ttl": 8 }
+  ]
 }
 ```
 
