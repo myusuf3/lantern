@@ -250,6 +250,23 @@ describe("static files", () => {
     expect(await res.text()).toBe("<h1>Lantern</h1>");
   });
 
+  it("fills the page's public origin in from the request, so link previews get absolute URLs", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "lantern-static-"));
+    await writeFile(
+      join(dir, "index.html"),
+      '<meta property="og:image" content="__PUBLIC_URL__/oneframe.jpg" />',
+    );
+    const app = createApp({ staticDir: dir });
+    const behindProxy = await app.request("/", {
+      headers: { host: "frames.example", "x-forwarded-proto": "https" },
+    });
+    expect(await behindProxy.text()).toBe(
+      '<meta property="og:image" content="https://frames.example/oneframe.jpg" />',
+    );
+    const plain = await app.request("/index.html", { headers: { host: "localhost:3000" } });
+    expect(await plain.text()).toContain('content="http://localhost:3000/oneframe.jpg"');
+  });
+
   it("does not serve files when no static directory is configured", async () => {
     expect((await createApp().request("/")).status).toBe(404);
   });

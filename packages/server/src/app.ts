@@ -1,6 +1,8 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { ENGINE_VERSION, loadScenario, ScenarioError } from "@lantern/engine";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { capturesPage, pageMarkdown } from "./captures.js";
 import { Lessons } from "./lessons.js";
 import { Runs } from "./runs.js";
@@ -62,7 +64,24 @@ export function createApp({ staticDir, lessonsDir }: AppOptions = {}) {
     return lesson ? c.json(lesson) : c.json({ error: "unknown lesson" }, 404);
   });
 
-  if (staticDir) app.use("/*", serveStatic({ root: staticDir }));
+  if (staticDir) {
+    const index = readFile(join(staticDir, "index.html"), "utf8");
+    const page = async (c: Context) => c.html((await index).replaceAll(PUBLIC_URL, originOf(c)));
+    app.get("/", page);
+    app.get("/index.html", page);
+    app.use("/*", serveStatic({ root: staticDir }));
+  }
 
   return app;
+}
+
+/**
+ * Link previews need absolute URLs, and the site does not know where it is hosted until a request
+ * arrives. The built page carries this placeholder where its public origin belongs.
+ */
+const PUBLIC_URL = "__PUBLIC_URL__";
+
+function originOf(c: Context): string {
+  const proto = c.req.header("x-forwarded-proto") ?? "http";
+  return `${proto}://${c.req.header("host") ?? "localhost"}`;
 }
