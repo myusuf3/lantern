@@ -3,6 +3,7 @@ import {
   type L3Node,
   type L3NodeSpec,
   type NetworkSpec,
+  type NodeSpec,
   type Scenario,
   type ScenarioSpec,
 } from "../schema.js";
@@ -68,4 +69,8 @@ export function router(id: string, ...links: string[]): L3NodeSpec {
 
 export function cable(id: string, a: string, b: string) {
   return { id, a, b };
+}
+
+export function sw(id: string, ...links: string[]): NodeSpec {
+  return { id, kind: "switch", interfaces: links.map((link, i) => ({ name: `p${i + 1}`, link })) };
 }
