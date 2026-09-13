@@ -116,6 +116,7 @@ describe("GET /api/lessons", () => {
       id: "01-two-hosts",
       title: "Two hosts and a cable",
       summary: expect.stringContaining("smallest network"),
+      show: { arp: true, routes: false },
     });
   });
 
@@ -131,7 +132,6 @@ describe("GET /api/lessons", () => {
     expect(lesson.id).toBe("01-two-hosts");
     expect(lesson.scenario.version).toBe(1);
     expect(Object.keys(lesson.narration).sort()).toEqual([
-      "arp.hit",
       "arp.learn",
       "arp.miss",
       "arp.reply",
@@ -156,6 +156,25 @@ describe("GET /api/lessons", () => {
     await writeFile(join(dir, "stray.txt"), "");
     const res = await createApp({ lessonsDir: dir }).request("/api/lessons");
     expect(await res.json()).toEqual([]);
+  });
+});
+
+describe("GET /api/glossary", () => {
+  it("returns every term with its title and definition, keyed by slug", async () => {
+    const res = await app().request("/api/glossary");
+    expect(res.status).toBe(200);
+    const glossary = (await res.json()) as Record<string, { title: string; body: string }>;
+    expect(glossary["mac-address"]).toEqual({
+      title: "MAC address",
+      body: expect.stringMatching(/network card/),
+    });
+    expect(Object.keys(glossary).length).toBeGreaterThan(5);
+  });
+
+  it("is empty when there is no glossary directory", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "lantern-lessons-"));
+    const res = await createApp({ lessonsDir: dir }).request("/api/glossary");
+    expect(await res.json()).toEqual({});
   });
 });
 

@@ -1,4 +1,5 @@
 {
   "title": "Two hosts and a cable",
-  "summary": "The smallest network there is. One ping, and everything a packet needs to get across a wire."
+  "summary": "The smallest network there is. One ping, and everything a packet needs to get across a wire.",
+  "show": { "arp": true, "routes": false }
 }

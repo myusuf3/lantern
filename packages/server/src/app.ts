@@ -42,6 +42,8 @@ export function createApp({ staticDir, lessonsDir }: AppOptions = {}) {
 
   app.get("/api/lessons", async (c) => c.json(lessons ? await lessons.list() : []));
 
+  app.get("/api/glossary", async (c) => c.json(lessons ? await lessons.glossary() : {}));
+
   app.get("/api/lessons/:id", async (c) => {
     const lesson = await lessons?.get(c.req.param("id"));
     return lesson ? c.json(lesson) : c.json({ error: "unknown lesson" }, 404);
