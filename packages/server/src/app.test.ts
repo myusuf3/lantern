@@ -120,18 +120,26 @@ describe("GET /api/lessons", () => {
     });
   });
 
-  it("returns one lesson with its scenario and narration slots", async () => {
+  it("returns one lesson with its scenes, each with a scenario and narration slots", async () => {
     const res = await app().request("/api/lessons/01-two-hosts");
     expect(res.status).toBe(200);
     const lesson = (await res.json()) as {
       id: string;
       title: string;
-      scenario: { version: number };
-      narration: Record<string, string>;
+      scenes: {
+        id: string;
+        title: string;
+        scenario: { version: number };
+        narration: Record<string, string>;
+      }[];
     };
     expect(lesson.id).toBe("01-two-hosts");
-    expect(lesson.scenario.version).toBe(1);
-    expect(Object.keys(lesson.narration).sort()).toEqual([
+    const [scene] = lesson.scenes;
+    expect(lesson.scenes).toHaveLength(1);
+    expect(scene?.id).toBe("01-cable");
+    expect(scene?.title).toBe("Two hosts, one cable");
+    expect(scene?.scenario.version).toBe(1);
+    expect(Object.keys(scene?.narration ?? {}).sort()).toEqual([
       "arp.learn",
       "arp.miss",
       "arp.reply",
@@ -142,8 +150,18 @@ describe("GET /api/lessons", () => {
       "outro",
       "route.lookup",
     ]);
-    expect(lesson.narration.intro).toMatch(/^Two computers\. One cable\./);
-    expect(() => loadScenario(lesson.scenario)).not.toThrow();
+    expect(scene?.narration.intro).toMatch(/^Two computers\. One cable\./);
+    expect(() => loadScenario(scene?.scenario)).not.toThrow();
+  });
+
+  it("returns lesson 2 with two scenes and node-specific narration slots", async () => {
+    const res = await app().request("/api/lessons/02-through-a-router");
+    const lesson = (await res.json()) as {
+      scenes: { id: string; narration: Record<string, string> }[];
+    };
+    expect(lesson.scenes.map((s) => s.id)).toEqual(["01-router", "02-switch"]);
+    expect(lesson.scenes[0]?.narration["route.lookup@laptop"]).toMatch(/gateway/);
+    expect(lesson.scenes[1]?.narration["switch.flood"]).toMatch(/every other port/);
   });
 
   it("is 404 for an unknown lesson and for path tricks", async () => {
@@ -175,6 +193,49 @@ describe("GET /api/glossary", () => {
     const dir = await mkdtemp(join(tmpdir(), "lantern-lessons-"));
     const res = await createApp({ lessonsDir: dir }).request("/api/glossary");
     expect(await res.json()).toEqual({});
+  });
+});
+
+describe("GET /api/home", () => {
+  it("returns the landing page prose", async () => {
+    const res = await app().request("/api/home");
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { markdown: string }).markdown).toMatch(/typed `ping` before/);
+  });
+});
+
+describe("GET /api/captures", () => {
+  it("runs every scene of every lesson and lists its capture", async () => {
+    const server = app();
+    const res = await server.request("/api/captures");
+    expect(res.status).toBe(200);
+    const page = (await res.json()) as {
+      markdown: string;
+      captures: {
+        lesson: string;
+        lessonTitle: string;
+        scene: string;
+        sceneTitle: string;
+        run: string;
+        frames: string[];
+      }[];
+    };
+    expect(page.markdown).toMatch(/Wireshark/);
+    expect(page.captures.map((c) => `${c.lesson}/${c.scene}`)).toEqual([
+      "01-two-hosts/01-cable",
+      "02-through-a-router/01-router",
+      "02-through-a-router/02-switch",
+    ]);
+    const [first] = page.captures;
+    expect(first?.lessonTitle).toBe("Two hosts and a cable");
+    expect(first?.frames).toEqual([
+      "ARP request 10.0.1.10 -> 10.0.1.11",
+      "ARP reply 10.0.1.11 -> 10.0.1.10",
+      "ICMP echo request 10.0.1.10 -> 10.0.1.11 TTL 64",
+      "ICMP echo reply 10.0.1.11 -> 10.0.1.10 TTL 64",
+    ]);
+    const pcap = await server.request(`/api/runs/${first?.run}/pcap`);
+    expect(pcap.status).toBe(200);
   });
 });
 
