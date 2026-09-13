@@ -1,1 +1,3 @@
-Here is the catch. Ethernet does not deliver to IP addresses. It delivers to MAC addresses, the ones burned into the network card. The laptop checks its ARP table for the server's MAC and finds nothing. The ping is parked until it does.
+Here is the catch. [[Ethernet]] does not deliver to IP addresses. It delivers to [[MAC address|MAC addresses]], the ones burned into the network card. The laptop checks its [[ARP table]] for the server's MAC and finds nothing. The [[ping]] is parked until it does.
+
+So the laptop asks. It cannot ask the server directly, because not knowing the server's MAC is the whole problem. Instead it addresses the question to `ff:ff:ff:ff:ff:ff`, the [[broadcast]] address: every machine on the cable gets a copy. Think of it as the MAC-world cousin of `0.0.0.0/0`, with one difference. That one matches every destination in a routing table. This one delivers to every destination on the wire.

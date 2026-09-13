@@ -1,1 +1,1 @@
-A new row goes into the ARP table: this IP lives at that MAC, reachable through this interface. Both machines now know each other. Neither one had to be told.
+A new row goes into the [[ARP table]]: this IP lives at that MAC, reachable through this [[interface]]. Nobody typed it in. The machine learned it from a frame that arrived, and it will use it for every packet to that address from now on.

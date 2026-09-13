@@ -1,1 +1,1 @@
-The server hears the broadcast, sees its own IP in the question, and answers directly: "that's me, here is my MAC". Notice it also learned the laptop's MAC from the request. It did not have to ask.
+The server hears the [[broadcast]], sees its own IP in the question, and answers directly: "that's me, here is my MAC". Notice it also learned the laptop's MAC from the request. It did not have to ask.

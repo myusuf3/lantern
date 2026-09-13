@@ -1,1 +1,1 @@
-The reply is home. Look at the round-trip time. Then look at the second ping's time. The difference is the ARP exchange, and it only ever happens once.
+The reply is home. That is one [[round-trip time]], and most of it was not the ping at all: it was the [[ARP]] exchange that had to happen first. Both machines remember what they learned, so the next ping would skip straight to the echo.

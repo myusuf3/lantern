@@ -7,7 +7,5 @@
     ],
     "links": [{ "id": "cable", "a": "laptop/eth0", "b": "server/eth0" }]
   },
-  "actions": [
-    { "action": "ping", "from": { "name": "laptop" }, "to": { "name": "server" }, "count": 2 }
-  ]
+  "actions": [{ "action": "ping", "from": { "name": "laptop" }, "to": { "name": "server" } }]
 }
