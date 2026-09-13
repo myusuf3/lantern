@@ -22,6 +22,7 @@ RUN pnpm -r build
 # Stage 3: runtime. One bundled server file plus the static web build; no
 # node_modules, no package manager, no sources.
 FROM node:24-slim AS runtime
+LABEL org.opencontainers.image.source=https://github.com/myusuf3/lantern
 ENV NODE_ENV=production \
     PORT=3000 \
     LANTERN_STATIC_DIR=/app/public
