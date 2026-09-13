@@ -1,7 +1,7 @@
 import type { Event, RunResult } from "@lantern/engine";
 import { loadScenario, simulate } from "@lantern/engine";
 import { describe, expect, it } from "vitest";
-import { arpTableAt, turnsOf } from "./steps.js";
+import { arpTableAt, macTableAt, turnsOf } from "./steps.js";
 
 const run: RunResult = simulate(
   loadScenario({
@@ -21,7 +21,9 @@ describe("turnsOf", () => {
   it("groups events into one turn per node per instant", () => {
     const turns = turnsOf(run.events);
     expect(
-      turns.map((t) => `${t.node}@${t.t_us}:${t.events.map((e: Event) => e.kind).join(",")}`),
+      turns.map(
+        (t) => `${t.nodes.join("+")}@${t.t_us}:${t.events.map((e: Event) => e.kind).join(",")}`,
+      ),
     ).toEqual([
       "laptop@0:route.lookup,arp.miss,frame.tx",
       "server@1000:frame.rx",
@@ -40,10 +42,12 @@ describe("turnsOf", () => {
     ]);
   });
 
-  it("marks a turn that receives a frame with the frame and the link it crossed", () => {
+  it("marks a turn that receives a frame with the frame, the link it crossed, and where it landed", () => {
     const turns = turnsOf(run.events);
-    expect(turns[1]?.arriving).toEqual({ frame: "f0", link: "cable", from: "laptop" });
-    expect(turns[0]?.arriving).toBeUndefined();
+    expect(turns[1]?.arrivals).toEqual([
+      { frame: "f0", link: "cable", from: "laptop", node: "server" },
+    ]);
+    expect(turns[0]?.arrivals).toEqual([]);
   });
 
   it("names the frame a turn sends, if any", () => {
@@ -70,8 +74,7 @@ describe("arpTableAt", () => {
 });
 
 describe("macTableAt", () => {
-  it("grows as switch.learn events pass", async () => {
-    const { macTableAt } = await import("./steps.js");
+  it("grows as switch.learn events pass", () => {
     const viaSwitch = simulate(
       loadScenario({
         version: 1,
@@ -101,5 +104,72 @@ describe("macTableAt", () => {
     expect(macTableAt(turns, "sw", 2)).toEqual([
       { mac: "02:00:00:00:00:01", port: "p1", fresh: true },
     ]);
+  });
+});
+
+describe("turnsOf with a flood", () => {
+  const flooded = simulate(
+    loadScenario({
+      version: 1,
+      network: {
+        nodes: [
+          { id: "laptop", kind: "host", interfaces: [{ name: "eth0", link: "l1" }] },
+          {
+            id: "sw",
+            kind: "switch",
+            interfaces: [
+              { name: "p1", link: "l1" },
+              { name: "p2", link: "l2" },
+              { name: "p3", link: "l3" },
+              { name: "p4", link: "l4" },
+            ],
+          },
+          {
+            id: "router",
+            kind: "router",
+            interfaces: [
+              { name: "eth0", link: "l2" },
+              { name: "eth1", link: "l5" },
+            ],
+          },
+          { id: "desktop", kind: "host", interfaces: [{ name: "eth0", link: "l3" }] },
+          { id: "printer", kind: "host", interfaces: [{ name: "eth0", link: "l4" }] },
+          { id: "server", kind: "host", interfaces: [{ name: "eth0", link: "l5" }] },
+        ],
+        links: [
+          { id: "l1", a: "laptop/eth0", b: "sw/p1" },
+          { id: "l2", a: "sw/p2", b: "router/eth0" },
+          { id: "l3", a: "sw/p3", b: "desktop/eth0" },
+          { id: "l4", a: "sw/p4", b: "printer/eth0" },
+          { id: "l5", a: "router/eth1", b: "server/eth0" },
+        ],
+      },
+      actions: [{ action: "ping", from: { name: "laptop" }, to: { name: "server" } }],
+    }),
+  );
+
+  it("groups the same frame arriving at several machines at once into one turn", () => {
+    const turns = turnsOf(flooded.events);
+    expect(turns[2]?.events.map((e) => e.kind)).toEqual([
+      "switch.learn",
+      "switch.flood",
+      "frame.tx",
+      "frame.tx",
+      "frame.tx",
+    ]);
+    expect(turns[3]?.nodes).toEqual(["router", "desktop", "printer"]);
+    expect(turns[3]?.arrivals.map((a) => `${a.link}->${a.node}`)).toEqual([
+      "l2->router",
+      "l3->desktop",
+      "l4->printer",
+    ]);
+  });
+
+  it("groups the machines that discard it into one turn, after the one that answers", () => {
+    const turns = turnsOf(flooded.events);
+    expect(turns[4]?.nodes).toEqual(["router"]);
+    expect(turns[4]?.events.map((e) => e.kind)).toEqual(["arp.learn", "arp.reply", "frame.tx"]);
+    expect(turns[5]?.nodes).toEqual(["desktop", "printer"]);
+    expect(turns[5]?.events.map((e) => e.kind)).toEqual(["drop", "drop"]);
   });
 });
