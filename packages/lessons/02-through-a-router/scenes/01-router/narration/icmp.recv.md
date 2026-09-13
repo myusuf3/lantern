@@ -1,1 +1,1 @@
-Home. The reply arrived with TTL 63, one less than it left with, because it crossed one router. Four frames carried this ping. One packet made the whole trip.
+Home. The reply arrived with TTL 63, one less than it left with, because it crossed one router. Four frames carried this ping: two for the request, two for the reply. Two packets, one each way, and each kept its own IP addresses across the router while its frames were swapped underneath it.

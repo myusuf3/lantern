@@ -1,1 +1,3 @@
-The frame reached the router's MAC and stops there; Ethernet has done its job. The router opens the IP header: not for me. A host would drop it. A router forwards it. First it lowers the [[TTL]] by one: this packet has spent one [[hop]] of its life.
+The frame reached the router's MAC and stops there; Ethernet has done its job. The router opens the IP header: not for me. A host would drop it. A router forwards it. First it lowers the [[TTL]] by one: this packet has spent one [[hop]] of its life. 
+
+Think of each router as a border crossing: every time the packet is forwarded across one, its TTL drops by one. If the TTL reaches zero, the router discards the packet instead of forwarding it.
