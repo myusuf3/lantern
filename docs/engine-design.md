@@ -115,7 +115,12 @@ Deterministic: same scenario, same log, byte for byte.
 
 Time only exists to order things and to give pcap timestamps. A link
 delivers a frame `latency_us` after it is sent; a node takes
-`PROCESSING_US`, an engine constant, to handle one.
+`PROCESSING_US`, an engine constant, to handle one: `frame.rx` is logged on
+arrival and everything the node does in response is logged
+`PROCESSING_US` later. A `ping` with `count` above one sends once per
+second, like the real tool. Round-trip time is measured from when the echo
+request was built, so the first ping on a cold ARP table is visibly slower
+than the second.
 
 Simulated time and wall-clock time are separate. When the reader presses
 play instead of stepping, the UI waits `PLAY_STEP_MS` between events, a
@@ -177,6 +182,25 @@ numbers, or anything else that is not on the wire.
 | `icmp.reply` | echo reply generated |
 | `icmp.recv` | echo reply or time exceeded arrived at the original sender |
 | `drop` | packet discarded, with a reason |
+
+### Packet ids
+
+Events that talk about an IP packet (`arp.miss`, `icmp.reply`,
+`icmp.recv`, `ttl.*`, `drop`) name it by a packet id. This is a naming
+convention of the engine, not anything on the wire.
+
+A packet id is the packet's source address and its IPv4 identification
+field, joined with `#`: `10.0.1.10#1` is the first packet the host at
+10.0.1.10 sent. Both values are real header fields and both are preserved
+by every router, so the same id names the packet at every hop even though
+each hop puts it in a new frame with new MACs. Frame ids (`f0`, `f1`, ...)
+are per hop; packet ids are end to end. The pair is what lets the UI say
+"this is the same packet" as it crosses a router.
+
+The identification field is a per-host counter starting at 1, so ids are
+unique within a run without the engine keeping any extra state. Nothing in
+the pcap carries the `#` form; open the capture and the two halves are the
+`Source` column and the `Identification` field of the IP header.
 
 Frames are stored once, keyed by `frame` id, as raw bytes. The same frame
 appears in one `frame.tx` and one or more `frame.rx` events. A frame that
@@ -406,11 +430,11 @@ domain, and router static routes by shortest path over the link graph.
   "network": { "...": "the resolved Network, so the UI never resolves" },
   "events": [
     { "seq": 0, "t_us": 0,    "action": 0, "node": "laptop", "kind": "route.lookup", "dst": "10.0.2.10", "route": { "dst": "default", "via": "10.0.1.1" }, "dev": "eth0", "next_hop": "10.0.1.1" },
-    { "seq": 1, "t_us": 0,    "action": 0, "node": "laptop", "kind": "arp.miss",     "ip": "10.0.1.1", "dev": "eth0", "parked": "pkt0" },
+    { "seq": 1, "t_us": 0,    "action": 0, "node": "laptop", "kind": "arp.miss",     "ip": "10.0.1.1", "dev": "eth0", "parked": "10.0.1.10#1" },
     { "seq": 2, "t_us": 0,    "action": 0, "node": "laptop", "kind": "frame.tx",     "dev": "eth0", "link": "l1", "frame": "f0" },
     { "seq": 3, "t_us": 1000, "action": 0, "node": "sw1",    "kind": "frame.rx",     "dev": "p1",   "link": "l1", "frame": "f0" },
-    { "seq": 4, "t_us": 1000, "action": 0, "node": "sw1",    "kind": "switch.learn", "mac": "02:00:00:00:00:01", "port": "p1" },
-    { "seq": 5, "t_us": 1000, "action": 0, "node": "sw1",    "kind": "switch.flood", "frame": "f0", "in": "p1", "out": ["p2"] },
+    { "seq": 4, "t_us": 1010, "action": 0, "node": "sw1",    "kind": "switch.learn", "mac": "02:00:00:00:00:01", "port": "p1" },
+    { "seq": 5, "t_us": 1010, "action": 0, "node": "sw1",    "kind": "switch.flood", "frame": "f0", "in": "p1", "out": ["p2"] },
     { "seq": 6, "t_us": 1010, "action": 0, "node": "sw1",    "kind": "frame.tx",     "dev": "p2",   "link": "l2", "frame": "f0" }
   ],
   "frames": {
@@ -441,10 +465,15 @@ Event kinds and their extra fields. Every event carries `seq`, `t_us`,
 | `switch.forward` | `frame`, `in`, `out` (single port) |
 | `switch.flood` | `frame`, `in`, `out` (port list) |
 | `ttl.decrement` | `packet`, `before`, `after` |
-| `ttl.expired` | `packet`, `reply_frame` |
-| `icmp.reply` | `packet`, `reply_frame` |
+| `ttl.expired` | `packet`, `reply_packet` |
+| `icmp.reply` | `packet`, `reply_packet` |
 | `icmp.recv` | `packet`, `type` (`echo-reply` \| `time-exceeded`), `from`, `rtt_us` |
 | `drop` | `frame` or `packet`, `reason` (`not-our-mac`, `not-our-ip`, `no-route`, `ttl`) |
+
+An ARP reply is sent the moment it is generated, so `arp.reply` can name
+its frame. An ICMP reply is a new packet that may be parked for ARP before
+any frame exists, so `icmp.reply` and `ttl.expired` name the reply packet
+instead; its frames follow as `frame.tx` events.
 
 `frames[id].bytes` is hex of the exact bytes on the wire; the pcap writer
 copies them verbatim. `summary` is decoded once by the engine so the UI never

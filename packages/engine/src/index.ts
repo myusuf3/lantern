@@ -21,5 +21,7 @@ export {
   scenarioSchema,
   scenarioSpecSchema,
 } from "./schema.js";
+export type { DropReason, Event, EventKind, FrameRecord, RunResult } from "./sim/events.js";
+export { captureOf, PING_INTERVAL_US, PROCESSING_US, simulate } from "./sim/simulate.js";
 export { type FrameSummary, summarizeFrame } from "./wire/frame.js";
 export { type PcapRecord, writePcap } from "./wire/pcap.js";
