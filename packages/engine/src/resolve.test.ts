@@ -1,27 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { clone, l3 } from "./fixtures/helpers.js";
+import { cable, clone, host, l3, router, scenario } from "./fixtures/helpers.js";
 import { lesson2Minimal, lesson2Resolved } from "./fixtures/lesson2.js";
 import { resolveScenario } from "./resolve.js";
-import type { NetworkSpec, ScenarioSpec } from "./schema.js";
-
-function scenario(network: NetworkSpec, actions: ScenarioSpec["actions"] = []): ScenarioSpec {
-  return { version: 1, network, actions };
-}
-
-const host = (id: string, link: string, extra: Record<string, unknown> = {}) => ({
-  id,
-  kind: "host" as const,
-  interfaces: [{ name: "eth0", link }],
-  ...extra,
-});
-
-const router = (id: string, ...links: string[]) => ({
-  id,
-  kind: "router" as const,
-  interfaces: links.map((link, i) => ({ name: `eth${i}`, link })),
-});
-
-const cable = (id: string, a: string, b: string) => ({ id, a, b });
 
 describe("resolveScenario", () => {
   it("fills the minimal lesson 2 spec out to the documented resolved form", () => {

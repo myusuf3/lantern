@@ -1,4 +1,11 @@
-import { isL3, type L3Node, type Scenario } from "../schema.js";
+import {
+  isL3,
+  type L3Node,
+  type L3NodeSpec,
+  type NetworkSpec,
+  type Scenario,
+  type ScenarioSpec,
+} from "../schema.js";
 import { lesson2Minimal } from "./lesson2.js";
 
 /** A scenario typed loosely enough to break on purpose. */
@@ -41,4 +48,24 @@ export function l3(scenario: Scenario, id: string): L3Node {
   const node = scenario.network.nodes.find((n) => n.id === id);
   if (!node || !isL3(node)) throw new Error(`no L3 node ${id}`);
   return node;
+}
+
+/** Builders for small hand-made networks. */
+export function scenario(
+  network: NetworkSpec,
+  actions: ScenarioSpec["actions"] = [],
+): ScenarioSpec {
+  return { version: 1, network, actions };
+}
+
+export function host(id: string, link: string, extra: Partial<L3NodeSpec> = {}): L3NodeSpec {
+  return { id, kind: "host", interfaces: [{ name: "eth0", link }], ...extra };
+}
+
+export function router(id: string, ...links: string[]): L3NodeSpec {
+  return { id, kind: "router", interfaces: links.map((link, i) => ({ name: `eth${i}`, link })) };
+}
+
+export function cable(id: string, a: string, b: string) {
+  return { id, a, b };
 }
