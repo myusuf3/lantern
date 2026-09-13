@@ -225,26 +225,27 @@ function Stepper({ show, narration, glossary, run, following }: StepperProps) {
     [run, turns, shown],
   );
 
-  const frameId = turn?.arriving?.frame ?? turn?.sent;
+  const frameId = turn?.arrivals[0]?.frame ?? turn?.sent;
   const frame: FrameRecord | undefined = frameId ? run.frames[frameId] : undefined;
-  const inFlight =
-    turn?.arriving && frame
-      ? {
-          link: turn.arriving.link,
-          from: turn.arriving.from,
-          label: cableLabel(frame),
-          key: `${step}`,
-        }
-      : undefined;
+  const inFlight = (turn?.arrivals ?? []).flatMap((a) => {
+    const f = run.frames[a.frame];
+    return f
+      ? [{ link: a.link, from: a.from, label: cableLabel(f), key: `${step}:${a.link}` }]
+      : [];
+  });
 
-  // One slot per event kind in the turn; a node-specific slot wins over the plain one.
+  // A `seq-N` slot speaks once, on step N. Then one slot per event kind in the turn, where a
+  // node-specific slot wins over the plain one.
   const slots = atIntro
     ? ["intro"]
     : atOutro
       ? ["outro"]
-      : [...new Set(turn?.events.map((e) => e.kind))];
+      : [`seq-${step + 1}`, ...new Set(turn?.events.map((e) => e.kind))];
   const prose = slots.flatMap((slot) => {
-    const md = (turn && narration[`${slot}@${turn.node}`]) ?? narration[slot];
+    const specific = turn?.nodes
+      .map((n) => narration[`${slot}@${n}`])
+      .find((md) => md !== undefined);
+    const md = specific ?? narration[slot];
     return md ? [{ slot, md }] : [];
   });
 
@@ -255,7 +256,7 @@ function Stepper({ show, narration, glossary, run, following }: StepperProps) {
         show={show}
         arpTables={arpTables}
         macTables={macTables}
-        activeNode={turn?.node}
+        activeNodes={turn?.nodes ?? []}
         activeRoute={routeUsedIn(turn)}
         inFlight={inFlight}
       />

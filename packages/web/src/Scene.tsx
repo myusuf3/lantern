@@ -10,8 +10,11 @@ import {
   type NodeProps,
   Position,
   ReactFlow,
+  useNodesInitialized,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { useEffect } from "react";
 import type { ArpRow, MacRow } from "./steps.js";
 
 export interface HostData extends Record<string, unknown> {
@@ -202,46 +205,120 @@ function Cable({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Cable
           />
         </g>
       )}
-      <EdgeLabelRenderer>
-        <div
-          className="cable-label"
-          style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 24}px)` }}
-        >
-          {flight ? flight.label : data?.id}
-        </div>
-      </EdgeLabelRenderer>
+      {flight && (
+        <EdgeLabelRenderer>
+          <div
+            className="cable-label"
+            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 24}px)` }}
+          >
+            {flight.label}
+          </div>
+        </EdgeLabelRenderer>
+      )}
     </>
   );
 }
 
+/**
+ * Fit the view once every box has been measured, and again when the window changes. Keyed by the
+ * network's node list, so a new network remounts it and fits again.
+ */
+function FitToNetwork() {
+  const { fitView } = useReactFlow();
+  const ready = useNodesInitialized();
+  useEffect(() => {
+    if (!ready) return;
+    const refit = () => fitView({ padding: 0.12, duration: 0 });
+    refit();
+    window.addEventListener("resize", refit);
+    return () => window.removeEventListener("resize", refit);
+  }, [ready, fitView]);
+  return null;
+}
+
 const nodeTypes = { host: HostBox, switch: SwitchBox };
 const edgeTypes = { cable: Cable };
+
+export interface Flight {
+  link: string;
+  from: string;
+  label: string;
+  key: string;
+}
 
 export interface SceneProps {
   network: Network;
   show: { arp: boolean; routes: boolean };
   arpTables: Record<string, ArpRow[]>;
   macTables: Record<string, MacRow[]>;
-  activeNode: string | undefined;
+  activeNodes: string[];
   activeRoute: HostData["activeRoute"];
-  inFlight?: { link: string; from: string; label: string; key: string } | undefined;
+  inFlight: Flight[];
 }
 
 /** Boxes are 300px wide; this spacing leaves a cable long enough to watch a frame cross. */
 const COLUMN = 640;
+const ROW = 420;
+const BASE_HEIGHT = 520;
+const ROW_HEIGHT = 300;
+
+/**
+ * Columns follow hops from the first node; a node not on the way to the last node drops to a
+ * lower row in its column, so a switch's extra machines hang below the path instead of extending it.
+ */
+function layout(network: Network): Map<string, { x: number; y: number }> {
+  const adjacent = new Map<string, string[]>();
+  for (const l of network.links) {
+    const [a = ""] = l.a.split("/");
+    const [b = ""] = l.b.split("/");
+    adjacent.set(a, [...(adjacent.get(a) ?? []), b]);
+    adjacent.set(b, [...(adjacent.get(b) ?? []), a]);
+  }
+  const first = network.nodes[0]?.id ?? "";
+  const column = new Map<string, number>([[first, 0]]);
+  const parent = new Map<string, string>();
+  for (const queue = [first]; queue.length > 0; ) {
+    const n = queue.shift() ?? "";
+    for (const m of adjacent.get(n) ?? []) {
+      if (column.has(m)) continue;
+      column.set(m, (column.get(n) ?? 0) + 1);
+      parent.set(m, n);
+      queue.push(m);
+    }
+  }
+  const last = network.nodes[network.nodes.length - 1]?.id ?? "";
+  const onPath = new Set<string>();
+  for (let n: string | undefined = last; n !== undefined; n = parent.get(n)) onPath.add(n);
+
+  const rowsUsed = new Map<number, number>();
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const n of network.nodes) {
+    const col = column.get(n.id) ?? 0;
+    const row = onPath.has(n.id) ? 0 : (rowsUsed.get(col) ?? 0) + 1;
+    if (!onPath.has(n.id)) rowsUsed.set(col, row);
+    positions.set(n.id, { x: col * COLUMN, y: row * ROW });
+  }
+  return positions;
+}
+
+/** How many rows the layout uses, so the scene can be tall enough to show them. */
+function rowCount(positions: Map<string, { x: number; y: number }>): number {
+  return 1 + Math.max(0, ...[...positions.values()].map((p) => p.y / ROW));
+}
 
 export function Scene({
   network,
   show,
   arpTables,
   macTables,
-  activeNode,
+  activeNodes,
   activeRoute,
   inFlight,
 }: SceneProps) {
-  const nodes: (HostNode | SwitchNode)[] = network.nodes.map((n, i) => {
-    const position = { x: i * COLUMN, y: 0 };
-    const active = activeNode === n.id;
+  const positions = layout(network);
+  const nodes: (HostNode | SwitchNode)[] = network.nodes.map((n) => {
+    const position = positions.get(n.id) ?? { x: 0, y: 0 };
+    const active = activeNodes.includes(n.id);
     if (n.kind === "switch") {
       const data: SwitchData = {
         id: n.id,
@@ -265,14 +342,13 @@ export function Scene({
   const edges: CableEdge[] = network.links.map((l) => {
     const [source = ""] = l.a.split("/");
     const [target = ""] = l.b.split("/");
-    const flight =
-      inFlight && inFlight.link === l.id
-        ? { label: inFlight.label, reverse: inFlight.from !== source, key: inFlight.key }
-        : undefined;
+    const f = inFlight.find((x) => x.link === l.id);
+    const flight = f ? { label: f.label, reverse: f.from !== source, key: f.key } : undefined;
     return { id: l.id, type: "cable", source, target, data: { id: l.id, inFlight: flight } };
   });
+  const rows = rowCount(positions);
   return (
-    <div className="scene">
+    <div className="scene" style={{ height: `${BASE_HEIGHT + (rows - 1) * ROW_HEIGHT}px` }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -287,7 +363,9 @@ export function Scene({
         zoomOnPinch={false}
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
-      />
+      >
+        <FitToNetwork key={network.nodes.map((n) => n.id).join(",")} />
+      </ReactFlow>
     </div>
   );
 }

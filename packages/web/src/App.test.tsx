@@ -50,6 +50,8 @@ const viaSwitch = {
         interfaces: [
           { name: "p1", link: "left" },
           { name: "p2", link: "middle" },
+          { name: "p3", link: "desk" },
+          { name: "p4", link: "print" },
         ],
       },
       {
@@ -60,11 +62,15 @@ const viaSwitch = {
           { name: "eth1", link: "right" },
         ],
       },
+      { id: "desktop", kind: "host", interfaces: [{ name: "eth0", link: "desk" }] },
+      { id: "printer", kind: "host", interfaces: [{ name: "eth0", link: "print" }] },
       { id: "server", kind: "host", interfaces: [{ name: "eth0", link: "right" }] },
     ],
     links: [
       { id: "left", a: "laptop/eth0", b: "switch/p1" },
       { id: "middle", a: "switch/p2", b: "router/eth0" },
+      { id: "desk", a: "switch/p3", b: "desktop/eth0" },
+      { id: "print", a: "switch/p4", b: "printer/eth0" },
       { id: "right", a: "router/eth1", b: "server/eth0" },
     ],
   },
@@ -120,6 +126,8 @@ const lesson2 = {
         intro: "One more box, and it is invisible.",
         "switch.learn": "The switch notes which port the MAC came in on.",
         "switch.flood": "It sends the frame out every other port.",
+        "seq-4": "The same frame, on three cables at once.",
+        drop: "Not for me. Thrown away.",
         outro: "The switch never touched a header.",
       },
     },
@@ -337,7 +345,7 @@ describe("lesson picker and scenes", () => {
     await user.click(screen.getByRole("button", { name: "Send ping" }));
     await user.click(screen.getByRole("button", { name: "Next" }));
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Step 3 of 25")).toBeInTheDocument();
+    expect(screen.getByText(/Step 3 of/)).toBeInTheDocument();
     expect(within(sw).getByText("02:00:00:00:00:01")).toBeInTheDocument();
     expect(screen.getByText(/every other port/)).toBeInTheDocument();
   });
@@ -349,7 +357,9 @@ describe("lesson picker and scenes", () => {
     await user.click(screen.getByRole("link", { name: "Next scene: Adding a switch" }));
     expect(await screen.findByTestId("node-switch")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Send ping" }));
-    for (let i = 0; i < 25; i++) await user.click(screen.getByRole("button", { name: "Next" }));
+    while (!screen.queryByRole("link", { name: "One more thing" })) {
+      await user.click(screen.getByRole("button", { name: "Next" }));
+    }
     expect(screen.getByRole("link", { name: "One more thing" })).toHaveAttribute(
       "href",
       "#captures",
@@ -406,5 +416,26 @@ describe("the landing page", () => {
     await user.click(screen.getByRole("button", { name: "Start with lesson 1" }));
     expect(await screen.findByRole("button", { name: "Send ping" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#01-two-hosts");
+  });
+});
+
+describe("flooding on screen", () => {
+  it("shows the flooded frame on every cable at once, then the machines that discard it", async () => {
+    const user = await renderLesson("#02-through-a-router/02-switch");
+    expect(await screen.findByTestId("node-desktop")).toBeInTheDocument();
+    expect(screen.getByTestId("node-printer")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Send ping" }));
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText(/Step 4 of/)).toBeInTheDocument();
+    expect(screen.getAllByText("ARP request")).toHaveLength(4);
+    expect(screen.getByText(/three cables at once/)).toBeInTheDocument();
+    for (const id of ["router", "desktop", "printer"]) {
+      expect(screen.getByTestId(`node-${id}`)).toHaveClass("box-active");
+    }
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText(/Thrown away/)).toBeInTheDocument();
+    expect(screen.getByTestId("node-desktop")).toHaveClass("box-active");
+    expect(screen.getByTestId("node-router")).not.toHaveClass("box-active");
   });
 });
