@@ -58,6 +58,7 @@ the slot it fills, so each can be reviewed and rewritten on its own:
 
 ```
   packages/lessons/01-two-hosts/
+    lesson.json        title and one-line summary
     scenario.json
     narration/
       intro.md

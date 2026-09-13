@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "network": {
+    "nodes": [
+      { "id": "laptop", "kind": "host", "interfaces": [{ "name": "eth0", "link": "cable" }] },
+      { "id": "server", "kind": "host", "interfaces": [{ "name": "eth0", "link": "cable" }] }
+    ],
+    "links": [{ "id": "cable", "a": "laptop/eth0", "b": "server/eth0" }]
+  },
+  "actions": [
+    { "action": "ping", "from": { "name": "laptop" }, "to": { "name": "server" }, "count": 2 }
+  ]
+}

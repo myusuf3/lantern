@@ -1,0 +1,1 @@
+Before a packet leaves, the laptop asks its routing table one question: where does this address live? The answer here is "right next to you, on eth0". No gateway is involved because both machines share the same subnet.

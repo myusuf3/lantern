@@ -1,0 +1,1 @@
+That is the whole story for two machines on one wire: find the route, resolve the MAC, send, reply. Every lesson from here adds one box to this picture. The next one puts a router in the middle, and the MAC addresses start to change while the IP addresses do not.

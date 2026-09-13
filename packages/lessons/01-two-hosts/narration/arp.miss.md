@@ -1,0 +1,1 @@
+Here is the catch. Ethernet does not deliver to IP addresses. It delivers to MAC addresses, the ones burned into the network card. The laptop checks its ARP table for the server's MAC and finds nothing. The ping is parked until it does.
