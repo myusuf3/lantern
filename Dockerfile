@@ -25,10 +25,12 @@ FROM node:24-slim AS runtime
 LABEL org.opencontainers.image.source=https://github.com/myusuf3/lantern
 ENV NODE_ENV=production \
     PORT=3000 \
-    LANTERN_STATIC_DIR=/app/public
+    LANTERN_STATIC_DIR=/app/public \
+    LANTERN_LESSONS_DIR=/app/lessons
 WORKDIR /app
 COPY --from=build --chown=node:node /app/packages/server/dist/main.js ./server/main.js
 COPY --from=build --chown=node:node /app/packages/web/dist ./public
+COPY --chown=node:node packages/lessons ./lessons
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s CMD node -e "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
