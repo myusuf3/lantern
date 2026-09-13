@@ -113,9 +113,10 @@ filled.
 
 ## Phases
 
-Each phase ends with a review gate. Phases 3 to 5 track the demo's own
-progression, so the engine grows the same way the reader's understanding
-does.
+Each phase ends with a review gate. Lesson 1 goes all the way to the
+screen before lessons 2 and 3 get engine work, so there is something to
+look at early; after that the engine grows the same way the reader's
+understanding does.
 
 ### Phase 0. Workspace
 
@@ -174,7 +175,39 @@ Tests first:
 
 Then: discrete event loop, host behavior, ARP state machine, echo.
 
-### Phase 4. Lesson 2, through a router, then a switch
+### Phase 4. Server
+
+Tests first:
+- `POST /runs` with the lesson 1 scenario returns the resolved network,
+  events, and frames, identical to calling the engine directly
+- `POST /runs` with an invalid scenario returns 400 and the validation
+  errors by name
+- `GET /runs/{id}/pcap` returns `application/vnd.tcpdump.pcap` bytes that
+  tshark dissects cleanly
+- `GET /lessons` lists lessons; `GET /lessons/{id}` returns scenario plus
+  narration slots
+
+Then: Hono app, in-memory run store, lesson loader.
+
+### Phase 5. Web, lesson 1 on screen
+
+First time the reader sees anything.
+
+Tests first (Vitest with Testing Library, server mocked at the fetch
+boundary):
+- a resolved config renders one React Flow node per host and one edge per
+  link
+- pressing send posts the scenario and the stepper shows step 1 of N
+- next and previous move through events; the narration slot for the current
+  event kind is shown
+- the pcap download produces the same bytes the engine test verified
+
+Then: scene layout, custom node renderer showing ARP table and routes as
+they change, frame-in-flight animation on the edge, stepper, narration
+panel, download button. Prose placeholders in your voice for you to
+replace.
+
+### Phase 6. Lesson 2, through a router, then a switch
 
 The second demo step, taught as two scenes. Scene one is host, router,
 host: two subnets, the packet's MACs change and its IPs do not. Scene two
@@ -193,7 +226,7 @@ Tests first:
 
 Then: router forwarding, TTL decrement, switch learning and flooding.
 
-### Phase 5. Lesson 3, many routers and TTL
+### Phase 7. Lesson 3, many routers and TTL
 
 The third demo step: a chain of routers, and what TTL is actually for.
 
@@ -207,38 +240,6 @@ Tests first:
   hop limit in the simulator
 
 Then: time exceeded generation, traceroute action.
-
-### Phase 6. Server
-
-Tests first:
-- `POST /runs` with the lesson 1 scenario returns the resolved network,
-  events, and frames, identical to calling the engine directly
-- `POST /runs` with an invalid scenario returns 400 and the validation
-  errors by name
-- `GET /runs/{id}/pcap` returns `application/vnd.tcpdump.pcap` bytes that
-  tshark dissects cleanly
-- `GET /lessons` lists lessons; `GET /lessons/{id}` returns scenario plus
-  narration slots
-
-Then: Hono app, in-memory run store, lesson loader.
-
-### Phase 7. Web, lesson 1 on screen
-
-First time the reader sees anything.
-
-Tests first (Vitest with Testing Library, server mocked at the fetch
-boundary):
-- a resolved config renders one React Flow node per host and one edge per
-  link
-- pressing send posts the scenario and the stepper shows step 1 of N
-- next and previous move through events; the narration slot for the current
-  event kind is shown
-- the pcap download produces the same bytes the engine test verified
-
-Then: scene layout, custom node renderer showing ARP table and routes as
-they change, frame-in-flight animation on the edge, stepper, narration
-panel, download button. Prose placeholders in your voice for you to
-replace.
 
 ### Phase 8. Web, lessons 2 and 3
 
