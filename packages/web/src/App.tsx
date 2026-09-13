@@ -19,8 +19,8 @@ import { arpTableAt, macTableAt, routeUsedIn, turnsOf } from "./steps.js";
 const HOME = "home";
 const CAPTURES = "captures";
 
-/** Pause between steps when the reader presses play rather than stepping. */
-export const PLAY_STEP_MS = 1800;
+/** How long play holds each step. The ring around the Play button fills over the same time. */
+export const PLAY_STEP_MS = 10_000;
 
 /** `#lesson-id/scene-id` in the URL keeps the reader's place across reloads. */
 function readHash(): { lesson?: string; scene?: string } {
@@ -295,8 +295,18 @@ function Stepper({ show, narration, glossary, run, following }: StepperProps) {
               >
                 Back
               </button>
-              <button type="button" onClick={() => setPlaying((p) => !p)} disabled={atOutro}>
+              <button
+                type="button"
+                className={playing ? "playing" : ""}
+                onClick={() => setPlaying((p) => !p)}
+                disabled={atOutro}
+              >
                 {playing ? "Pause" : "Play"}
+                {playing && (
+                  <svg className="play-ring" aria-hidden="true" key={step}>
+                    <rect pathLength="100" style={{ animationDuration: `${PLAY_STEP_MS}ms` }} />
+                  </svg>
+                )}
               </button>
               <button
                 type="button"
