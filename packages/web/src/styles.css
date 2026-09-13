@@ -236,6 +236,15 @@ body {
   border: 1px solid var(--ink-faint);
   pointer-events: none;
 }
+.cable-metric {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  background: var(--paper);
+  padding: 0 4px;
+  pointer-events: none;
+}
 
 /* Panel */
 .panel {

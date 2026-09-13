@@ -1,4 +1,4 @@
-import type { Network, Route } from "@lantern/engine";
+import { isL3, type Network, type Route } from "@lantern/engine";
 import {
   BaseEdge,
   type Edge,
@@ -38,6 +38,8 @@ export interface CableData extends Record<string, unknown> {
   id: string;
   /** A frame crossing this cable during the current step. */
   inFlight?: { label: string; reverse: boolean; key: string } | undefined;
+  /** The metric a router at either end gives a route down this cable, when it gives one. */
+  metric?: string | undefined;
 }
 
 type HostNode = Node<HostData, "host">;
@@ -205,14 +207,28 @@ function Cable({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Cable
           />
         </g>
       )}
-      {flight && (
+      {(flight || data?.metric) && (
         <EdgeLabelRenderer>
-          <div
-            className="cable-label"
-            style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 24}px)` }}
-          >
-            {flight.label}
-          </div>
+          {flight && (
+            <div
+              className="cable-label"
+              style={{
+                transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - 24}px)`,
+              }}
+            >
+              {flight.label}
+            </div>
+          )}
+          {data?.metric && (
+            <div
+              className="cable-metric"
+              style={{
+                transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY + 22}px)`,
+              }}
+            >
+              metric {data.metric}
+            </div>
+          )}
         </EdgeLabelRenderer>
       )}
     </>
@@ -289,6 +305,23 @@ function layout(network: Network): Map<string, { x: number; row: number }> {
     positions.set(n.id, { x: col * column, row });
   }
   return positions;
+}
+
+/**
+ * The metrics routers give their routes, by the cable each route leads down. A metric only means
+ * something next to the alternative it beats, so it is drawn on the cable, not in the table.
+ */
+function metricsByLink(network: Network): Map<string, string> {
+  const metrics = new Map<string, Set<number>>();
+  for (const n of network.nodes.filter(isL3)) {
+    for (const r of n.routes.filter((r) => r.metric > 0)) {
+      const link = n.interfaces.find((i) => i.name === r.dev)?.link;
+      if (link !== undefined) metrics.set(link, new Set(metrics.get(link)).add(r.metric));
+    }
+  }
+  return new Map(
+    [...metrics].map(([link, set]) => [link, [...set].sort((a, b) => a - b).join(" / ")]),
+  );
 }
 
 function sameYs(a: Record<string, number>, b: Record<string, number>): boolean {
@@ -391,12 +424,14 @@ export function Scene({
     };
     return { id: n.id, type: "host", position, draggable: false, data };
   });
+  const metrics = metricsByLink(network);
   const edges: CableEdge[] = network.links.map((l) => {
     const [source = ""] = l.a.split("/");
     const [target = ""] = l.b.split("/");
     const f = inFlight.find((x) => x.link === l.id);
     const flight = f ? { label: f.label, reverse: f.from !== source, key: f.key } : undefined;
-    return { id: l.id, type: "cable", source, target, data: { id: l.id, inFlight: flight } };
+    const data: CableData = { id: l.id, inFlight: flight, metric: metrics.get(l.id) };
+    return { id: l.id, type: "cable", source, target, data };
   });
   const rows = rowCount(positions);
   return (

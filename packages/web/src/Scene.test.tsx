@@ -103,6 +103,19 @@ describe("Scene layout", () => {
     });
   });
 
+  it("writes a route's metric on the cable the deciding router would send it down", async () => {
+    renderScene(twoWaysHome);
+    expect(await screen.findByText("metric 20")).toBeInTheDocument();
+    expect(screen.getByText("metric 10")).toBeInTheDocument();
+    expect(screen.getAllByText(/^metric /)).toHaveLength(2);
+  });
+
+  it("leaves cables unlabelled when every route is plain", async () => {
+    renderScene(cable);
+    await screen.findByTestId("node-laptop");
+    expect(screen.queryByText(/^metric /)).toBeNull();
+  });
+
   it("settles after stacking instead of re-rendering forever", async () => {
     let renders = 0;
     render(
