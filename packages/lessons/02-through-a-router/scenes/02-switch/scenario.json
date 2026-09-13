@@ -6,18 +6,27 @@
       {
         "id": "switch",
         "kind": "switch",
-        "interfaces": [{ "name": "p1", "link": "left" }, { "name": "p2", "link": "middle" }]
+        "interfaces": [
+          { "name": "p1", "link": "left" },
+          { "name": "p2", "link": "middle" },
+          { "name": "p3", "link": "desk" },
+          { "name": "p4", "link": "print" }
+        ]
       },
       {
         "id": "router",
         "kind": "router",
         "interfaces": [{ "name": "eth0", "link": "middle" }, { "name": "eth1", "link": "right" }]
       },
+      { "id": "desktop", "kind": "host", "interfaces": [{ "name": "eth0", "link": "desk" }] },
+      { "id": "printer", "kind": "host", "interfaces": [{ "name": "eth0", "link": "print" }] },
       { "id": "server", "kind": "host", "interfaces": [{ "name": "eth0", "link": "right" }] }
     ],
     "links": [
       { "id": "left", "a": "laptop/eth0", "b": "switch/p1" },
       { "id": "middle", "a": "switch/p2", "b": "router/eth0" },
+      { "id": "desk", "a": "switch/p3", "b": "desktop/eth0" },
+      { "id": "print", "a": "switch/p4", "b": "printer/eth0" },
       { "id": "right", "a": "router/eth1", "b": "server/eth0" }
     ]
   },

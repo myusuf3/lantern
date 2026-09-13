@@ -1,0 +1,1 @@
+Not for me. The desktop and the printer each read the question, see an IP that is not theirs, and throw the frame away. Nothing is learned, nothing is answered. That is the cost of a broadcast: everyone pays a glance, and only one machine gets anything for it.
