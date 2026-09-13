@@ -96,6 +96,8 @@ export const scenarioSpecSchema = z.object({
   network: z.object({
     nodes: z.array(z.union([l3NodeSpec, switchNode])).min(1),
     links: z.array(linkSpec),
+    /** Pre-fill every ARP table with every neighbour, for lessons where ARP is already understood. */
+    warm_arp: z.boolean().optional(),
   }),
   actions: z.array(actionSpec),
 });

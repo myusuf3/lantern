@@ -83,7 +83,7 @@ describe("simulate: through a router", () => {
     expect(run.events.at(-1)).toMatchObject({ node: "a", kind: "icmp.recv", type: "echo-reply" });
   });
 
-  it("drops a packet whose TTL runs out at the router", () => {
+  it("drops a packet whose TTL runs out at the router and tells the sender", () => {
     const s = throughRouter();
     const [ping] = s.actions;
     if (ping?.action === "ping") ping.ttl = 1;
@@ -91,7 +91,12 @@ describe("simulate: through a router", () => {
     expect(out.events.filter((e) => e.kind === "drop")).toEqual([
       expect.objectContaining({ node: "r", reason: "ttl", packet: "10.0.1.10#1" }),
     ]);
-    expect(out.events.some((e) => e.kind === "icmp.recv")).toBe(false);
+    expect(out.events.at(-1)).toMatchObject({
+      node: "a",
+      kind: "icmp.recv",
+      type: "time-exceeded",
+      from: "10.0.1.1",
+    });
   });
 
   it("cuts a capture where tshark sees the request and reply twice each, with TTL 64 then 63", async () => {

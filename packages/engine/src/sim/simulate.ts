@@ -366,7 +366,7 @@ class Host {
       return;
     }
     if (header.type === ETHERTYPE_ARP) this.handleArp(dev, frame, decodeArp(payload));
-    else if (header.type === ETHERTYPE_IPV4) this.handleIp(frame, decodeIpv4(payload));
+    else if (header.type === ETHERTYPE_IPV4) this.handleIp(dev, frame, decodeIpv4(payload));
   }
 
   private handleArp(dev: string, frame: Frame, arp: ArpPacket): void {
@@ -391,9 +391,9 @@ class Host {
     this.sim.emit(this.id, { kind: "arp.learn", ip, mac, dev });
   }
 
-  private handleIp(frame: Frame, packet: Packet): void {
+  private handleIp(dev: string, frame: Frame, packet: Packet): void {
     if (!this.ownsIp(packet.header.dst)) {
-      if (this.config.kind === "router") this.forward(packet);
+      if (this.config.kind === "router") this.forward(dev, packet);
       else this.drop({ frame: frame.id, packet: packetId(packet.header) }, "not-our-ip");
       return;
     }
@@ -404,15 +404,37 @@ class Host {
   }
 
   /** What makes a router a router: lower the TTL and send the packet on with its own lookup. */
-  private forward(packet: Packet): void {
+  private forward(dev: string, packet: Packet): void {
     const id = packetId(packet.header);
     const after = packet.header.ttl - 1;
     this.sim.emit(this.id, { kind: "ttl.decrement", packet: id, before: packet.header.ttl, after });
     if (after <= 0) {
-      this.drop({ packet: id }, "ttl");
+      this.timeExceeded(dev, packet);
       return;
     }
     this.sendIp({ header: { ...packet.header, ttl: after }, payload: packet.payload });
+  }
+
+  /**
+   * RFC 792: tell the sender its packet died here, quoting the packet as it arrived. The reply is
+   * sourced from the interface the packet came in on, which is how traceroute learns each hop.
+   */
+  private timeExceeded(dev: string, packet: Packet): void {
+    const original = encodeIpv4(packet.header, packet.payload);
+    const icmp = encodeIcmp({ type: "time-exceeded", original });
+    const reply = this.icmpPacket(
+      stripPrefix(this.iface(dev).ip),
+      packet.header.src,
+      DEFAULT_TTL,
+      icmp,
+    );
+    this.sim.emit(this.id, {
+      kind: "ttl.expired",
+      packet: packetId(packet.header),
+      reply_packet: packetId(reply.header),
+    });
+    this.drop({ packet: packetId(packet.header) }, "ttl");
+    this.sendIp(reply);
   }
 
   private answerEcho(request: Packet, echo: EchoMessage): void {

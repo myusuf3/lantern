@@ -17,6 +17,7 @@ import type {
   Interface,
   InterfaceSpec,
   L3NodeSpec,
+  Neighbor,
   Network,
   NetworkSpec,
   Route,
@@ -32,6 +33,7 @@ export const DEFAULT_PING_COUNT = 1;
 export const DEFAULT_MAX_TTL = 30;
 const ROUTER_FIRST_HOST = 1;
 const HOST_FIRST_HOST = 10;
+const DEFAULT_ROUTE = "0.0.0.0/0";
 /** Locally administered, unicast: 02:00:00:00:00:00. Generated MACs count up from here. */
 const MAC_BASE = 0x020000000000;
 
@@ -71,7 +73,9 @@ function resolveNetwork(spec: NetworkSpec, issues: ConfigIssue[]): Network {
       kind: n.kind,
       interfaces: own,
       routes: resolveRoutes(n, ni, own, domainOf, issues),
-      neighbors: resolveNeighbors(n, ni, own, issues),
+      neighbors: spec.warm_arp
+        ? warmNeighbors(own, domainOf)
+        : resolveNeighbors(n, ni, own, issues),
     };
   });
   return { nodes, links };
@@ -158,22 +162,21 @@ function ipAllocator(
   }
   const explicitSubnets = new Set([...explicit.values()].map(formatNetwork));
 
+  // Domains are numbered in link order, and so are their subnets: domain 0 is 10.0.1.0/24.
   const subnets = new Map<number, Cidr>(explicit);
   let thirdOctet = 0;
-  const subnetOf = (d: number): Cidr => {
-    let s = subnets.get(d);
-    while (!s) {
+  const domainCount = new Set(domainOfLink.values()).size;
+  for (let d = 0; d < domainCount; d++) {
+    while (!subnets.has(d)) {
       thirdOctet += 1;
       const candidate = parseCidr(`10.0.${thirdOctet}.0/24`);
-      if (!explicitSubnets.has(formatNetwork(candidate))) s = candidate;
+      if (!explicitSubnets.has(formatNetwork(candidate))) subnets.set(d, candidate);
     }
-    subnets.set(d, s);
-    return s;
-  };
+  }
 
   return (node, iface) => {
     const d = domainOfLink.get(iface.link) ?? -1;
-    const subnet = subnetOf(d);
+    const subnet = subnets.get(d) ?? parseCidr(DEFAULT_ROUTE);
     const used = taken.get(d) ?? new Set<number>();
     taken.set(d, used);
     let host = node.kind === "router" ? ROUTER_FIRST_HOST : HOST_FIRST_HOST;
@@ -323,6 +326,15 @@ function routerStaticRoutes(node: L3NodeSpec, ifaces: Interface[], domainOf: Dom
   return [...firstHop.entries()]
     .sort((a, b) => a[0].index - b[0].index)
     .map(([d, hop]) => ({ dst: formatNetwork(d.subnet), via: hop.via, dev: hop.dev, metric: 0 }));
+}
+
+/** Every other interface on each of this node's subnets, as if ARP had already run for all of them. */
+function warmNeighbors(ifaces: Interface[], domainOf: DomainOf): Neighbor[] {
+  return ifaces.flatMap((iface) =>
+    (domainOf(iface.link)?.members ?? [])
+      .filter((m) => m.iface !== iface)
+      .map((m) => ({ ip: stripPrefix(m.iface.ip), mac: m.iface.mac, dev: iface.name })),
+  );
 }
 
 function resolveNeighbors(
