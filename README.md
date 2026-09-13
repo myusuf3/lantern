@@ -61,7 +61,15 @@ you have Nix, run the suite under it:
 nix shell nixpkgs#wireshark-cli -c pnpm test
 ```
 
-Otherwise install `tshark` from your package manager. CI installs it with apt.
+Otherwise install it from your package manager. On macOS the Homebrew
+formula is the command line tools, `tshark` included; the GUI is a separate
+cask you do not need for this.
+
+```sh
+brew install wireshark
+```
+
+On Debian and Ubuntu it is `apt install tshark`, which is what CI does.
 
 ## How it is put together
 
