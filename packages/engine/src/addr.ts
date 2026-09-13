@@ -57,3 +57,8 @@ export function formatMac(n: number): string {
   const hex = n.toString(16).padStart(12, "0");
   return hex.match(/.{2}/g)?.join(":") ?? hex;
 }
+
+/** The address part of `a.b.c.d/n`. */
+export function stripPrefix(cidr: string): string {
+  return formatIp(parseCidr(cidr).ip);
+}

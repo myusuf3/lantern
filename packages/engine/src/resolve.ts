@@ -2,11 +2,11 @@ import {
   type Cidr,
   cidrContains,
   formatCidr,
-  formatIp,
   formatMac,
   formatNetwork,
   parseCidr,
   parseIp,
+  stripPrefix,
 } from "./addr.js";
 import { type ConfigIssue, ScenarioError } from "./errors.js";
 import type {
@@ -364,10 +364,6 @@ function resolveAction(a: ActionSpec, network: Network): Action {
     };
   }
   return { action: "traceroute", from, to, max_ttl: a.max_ttl ?? DEFAULT_MAX_TTL };
-}
-
-function stripPrefix(cidr: string): string {
-  return formatIp(parseCidr(cidr).ip);
 }
 
 function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
