@@ -2,7 +2,7 @@
 
 ![One frame at a time: a laptop and a server joined by a cable](packages/web/public/oneframe.jpg)
 
-**One frame at a time.** An interactive site that shows how packets move
+**One frame at a time.** Live at <https://frame.earmark.co/>. An interactive site that shows how packets move
 through a network. You have typed `ping` before. This is what happens after
 you press enter, slowed down so that you can see it: the questions your laptop
 has to ask first, the machines that answer, the way one packet is put into a
