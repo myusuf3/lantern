@@ -409,9 +409,12 @@ describe("the landing page", () => {
     expect(path.map((li) => li.textContent)).toEqual([
       expect.stringContaining("Two hosts and a cable"),
       expect.stringContaining("Through a router"),
+      "One more thingTying it all together.",
     ]);
     expect(screen.queryByText(/capture/i)).not.toBeInTheDocument();
-    expect(document.querySelector(".path-hidden")).toBeInTheDocument();
+    const last = screen.getByText("One more thing");
+    expect(last.closest("a")).toBeNull();
+    expect(last.closest("li")).toHaveClass("path-hidden");
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Start with lesson 1" }));
     expect(await screen.findByRole("button", { name: "Send ping" })).toBeInTheDocument();

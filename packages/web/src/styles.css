@@ -558,24 +558,26 @@ h2 {
   text-align: center;
   padding: 2px 0;
 }
+/* The last step is not a link: the only way there is through the lessons. */
 .path-hidden {
+  display: grid;
+  grid-template-columns: 2.2em 1fr;
+  column-gap: 12px;
+  align-items: baseline;
+  padding: 10px 14px;
   border: 1px solid var(--ink-faint);
   background: var(--paper-raised);
   box-shadow: 3px 3px 0 var(--ink-faint);
-  padding: 22px 18px;
-  overflow: hidden;
 }
-.path-blur {
-  display: grid;
-  grid-template-columns: repeat(7, 18px);
-  gap: 10px 30px;
-  filter: blur(2px);
-}
-.path-blur i {
-  display: block;
-  width: 18px;
-  height: 18px;
-  background: var(--ink);
+.path-hidden::before {
+  counter-increment: path;
+  content: counter(path);
+  grid-row: span 2;
+  font-family: var(--mono);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  text-align: center;
+  padding: 2px 0;
 }
 .path-title {
   font-size: 1.1rem;

@@ -8,12 +8,6 @@ interface HomeProps {
   onStart: (lessonId: string) => void;
 }
 
-/** Opacities for the blurred last step of the path, which is revealed at the end. */
-const BLUR = [0.5, 0, 0.3, 0.2, 0.9, 1, 0, 0.05, 0, 0.1, 0, 0.6, 0.15, 0.4].map((opacity, i) => ({
-  id: `cell-${i}`,
-  opacity,
-}));
-
 /** The landing page: what this site is, and the path through it. */
 export function Home({ lessons, glossary, onStart }: HomeProps) {
   const [markdown, setMarkdown] = useState<string>();
@@ -43,12 +37,9 @@ export function Home({ lessons, glossary, onStart }: HomeProps) {
             </a>
           </li>
         ))}
-        <li aria-hidden="true" className="path-hidden">
-          <span className="path-blur">
-            {BLUR.map((cell) => (
-              <i key={cell.id} style={{ opacity: cell.opacity }} />
-            ))}
-          </span>
+        <li className="path-hidden">
+          <span className="path-title">One more thing</span>
+          <span className="path-summary">Tying it all together.</span>
         </li>
       </ol>
       {first && (
