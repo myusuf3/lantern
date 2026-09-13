@@ -26,8 +26,13 @@ class DOMMatrixReadOnly {
   }
 }
 Object.assign(globalThis, { ResizeObserver, DOMMatrixReadOnly });
+// A box's height grows with its table rows, so layout tests can tell a tall box from a short one.
 Object.defineProperties(HTMLElement.prototype, {
-  offsetHeight: { get: () => 100 },
+  offsetHeight: {
+    get(this: HTMLElement) {
+      return 100 + 20 * this.querySelectorAll("tr").length;
+    },
+  },
   offsetWidth: { get: () => 100 },
 });
 Object.assign(SVGElement.prototype, { getBBox: () => ({ x: 0, y: 0, width: 0, height: 0 }) });

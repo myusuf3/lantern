@@ -10,11 +10,11 @@ import {
   type NodeProps,
   Position,
   ReactFlow,
-  useNodesInitialized,
   useReactFlow,
+  useStore,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ArpRow, MacRow } from "./steps.js";
 
 export interface HostData extends Record<string, unknown> {
@@ -219,23 +219,6 @@ function Cable({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<Cable
   );
 }
 
-/**
- * Fit the view once every box has been measured, and again when the window changes. Keyed by the
- * network's node list, so a new network remounts it and fits again.
- */
-function FitToNetwork() {
-  const { fitView } = useReactFlow();
-  const ready = useNodesInitialized();
-  useEffect(() => {
-    if (!ready) return;
-    const refit = () => fitView({ padding: 0.12, duration: 0 });
-    refit();
-    window.addEventListener("resize", refit);
-    return () => window.removeEventListener("resize", refit);
-  }, [ready, fitView]);
-  return null;
-}
-
 const nodeTypes = { host: HostBox, switch: SwitchBox };
 const edgeTypes = { cable: Cable };
 
@@ -256,9 +239,15 @@ export interface SceneProps {
   inFlight: Flight[];
 }
 
-/** Boxes are 300px wide; this spacing leaves a cable long enough to watch a frame cross. */
+/**
+ * Boxes are 300px wide. A short network gets a long cable so a frame's crossing is visible; a
+ * long chain gets a tighter one so five boxes still fit the screen legibly.
+ */
 const COLUMN = 640;
+const COLUMN_TIGHT = 470;
+const TIGHT_FROM = 5;
 const ROW = 420;
+const ROW_GAP = 90;
 const BASE_HEIGHT = 520;
 const ROW_HEIGHT = 300;
 
@@ -266,7 +255,8 @@ const ROW_HEIGHT = 300;
  * Columns follow hops from the first node; a node not on the way to the last node drops to a
  * lower row in its column, so a switch's extra machines hang below the path instead of extending it.
  */
-function layout(network: Network): Map<string, { x: number; y: number }> {
+function layout(network: Network): Map<string, { x: number; row: number }> {
+  const column = network.nodes.length >= TIGHT_FROM ? COLUMN_TIGHT : COLUMN;
   const adjacent = new Map<string, string[]>();
   for (const l of network.links) {
     const [a = ""] = l.a.split("/");
@@ -275,13 +265,13 @@ function layout(network: Network): Map<string, { x: number; y: number }> {
     adjacent.set(b, [...(adjacent.get(b) ?? []), a]);
   }
   const first = network.nodes[0]?.id ?? "";
-  const column = new Map<string, number>([[first, 0]]);
+  const columnOf = new Map<string, number>([[first, 0]]);
   const parent = new Map<string, string>();
   for (const queue = [first]; queue.length > 0; ) {
     const n = queue.shift() ?? "";
     for (const m of adjacent.get(n) ?? []) {
-      if (column.has(m)) continue;
-      column.set(m, (column.get(n) ?? 0) + 1);
+      if (columnOf.has(m)) continue;
+      columnOf.set(m, (columnOf.get(n) ?? 0) + 1);
       parent.set(m, n);
       queue.push(m);
     }
@@ -291,19 +281,74 @@ function layout(network: Network): Map<string, { x: number; y: number }> {
   for (let n: string | undefined = last; n !== undefined; n = parent.get(n)) onPath.add(n);
 
   const rowsUsed = new Map<number, number>();
-  const positions = new Map<string, { x: number; y: number }>();
+  const positions = new Map<string, { x: number; row: number }>();
   for (const n of network.nodes) {
-    const col = column.get(n.id) ?? 0;
+    const col = columnOf.get(n.id) ?? 0;
     const row = onPath.has(n.id) ? 0 : (rowsUsed.get(col) ?? 0) + 1;
     if (!onPath.has(n.id)) rowsUsed.set(col, row);
-    positions.set(n.id, { x: col * COLUMN, y: row * ROW });
+    positions.set(n.id, { x: col * column, row });
   }
   return positions;
 }
 
+function sameYs(a: Record<string, number>, b: Record<string, number>): boolean {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
+}
+
 /** How many rows the layout uses, so the scene can be tall enough to show them. */
-function rowCount(positions: Map<string, { x: number; y: number }>): number {
-  return 1 + Math.max(0, ...[...positions.values()].map((p) => p.y / ROW));
+function rowCount(positions: Map<string, { x: number; row: number }>): number {
+  return 1 + Math.max(0, ...[...positions.values()].map((p) => p.row));
+}
+
+/**
+ * Rows stack by measured height: a box in a lower row sits below every box above it in the same
+ * column, with a gap. Re-stacks whenever a box grows, e.g. when an ARP table gains a row, then
+ * fits the view; the view also refits when the window changes.
+ */
+function StackRows({
+  slots,
+  onStacked,
+}: {
+  slots: Map<string, { x: number; row: number }>;
+  onStacked: (ys: Record<string, number>) => void;
+}) {
+  const { fitView } = useReactFlow();
+  // Measured sizes live on React Flow's internal nodes, not on the nodes this scene passes in.
+  // A string, so the effect below re-runs only when a measured height actually changes.
+  const heights = useStore((s) =>
+    [...s.nodeLookup.values()].map((n) => `${n.id}:${n.measured.height ?? 0}`).join(","),
+  );
+  useEffect(() => {
+    const height = new Map(
+      heights
+        .split(",")
+        .filter(Boolean)
+        .map((pair) => pair.split(":"))
+        .map(([id = "", h = "0"]) => [id, Number(h)]),
+    );
+    const measured = height.size > 0 && [...height.values()].every((h) => h > 0);
+    if (!measured) return;
+    const ys: Record<string, number> = {};
+    const byColumn = new Map<number, string[]>();
+    for (const [id, slot] of slots) byColumn.set(slot.x, [...(byColumn.get(slot.x) ?? []), id]);
+    for (const ids of byColumn.values()) {
+      let y = 0;
+      for (const id of ids.sort((a, b) => (slots.get(a)?.row ?? 0) - (slots.get(b)?.row ?? 0))) {
+        ys[id] = y;
+        y += (height.get(id) ?? 0) + ROW_GAP;
+      }
+    }
+    onStacked(ys);
+    const refit = () => fitView({ padding: 0.12, duration: 0 });
+    const frame = requestAnimationFrame(refit);
+    window.addEventListener("resize", refit);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", refit);
+    };
+  }, [heights, slots, onStacked, fitView]);
+  return null;
 }
 
 export function Scene({
@@ -315,9 +360,16 @@ export function Scene({
   activeRoute,
   inFlight,
 }: SceneProps) {
-  const positions = layout(network);
+  const positions = useMemo(() => layout(network), [network]);
+  const [ys, setYs] = useState<Record<string, number>>({});
+  // Every render hands React Flow fresh node objects, which makes it re-measure them and re-run
+  // the stacking, so an unchanged result must not become a new state or the scene loops forever.
+  const stack = useCallback((next: Record<string, number>) => {
+    setYs((prev) => (sameYs(prev, next) ? prev : next));
+  }, []);
   const nodes: (HostNode | SwitchNode)[] = network.nodes.map((n) => {
-    const position = positions.get(n.id) ?? { x: 0, y: 0 };
+    const slot = positions.get(n.id) ?? { x: 0, row: 0 };
+    const position = { x: slot.x, y: ys[n.id] ?? slot.row * ROW };
     const active = activeNodes.includes(n.id);
     if (n.kind === "switch") {
       const data: SwitchData = {
@@ -364,7 +416,7 @@ export function Scene({
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
       >
-        <FitToNetwork key={network.nodes.map((n) => n.id).join(",")} />
+        <StackRows slots={positions} onStacked={stack} />
       </ReactFlow>
     </div>
   );
