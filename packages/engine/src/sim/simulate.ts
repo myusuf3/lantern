@@ -7,6 +7,7 @@ import {
   type Link,
   type Route,
   type Scenario,
+  type SwitchNode,
 } from "../schema.js";
 import { type ArpPacket, decodeArp, encodeArp } from "../wire/arp.js";
 import { hex, toHex, Writer } from "../wire/bytes.js";
@@ -84,13 +85,13 @@ class Simulation {
   readonly events: Event[] = [];
   readonly frames: Record<string, FrameRecord> = {};
   private readonly timers: Timer[] = [];
-  private readonly hosts = new Map<string, Host>();
+  private readonly nodes = new Map<string, Host | Switch>();
   private readonly ends = new Map<string, LinkEnd>();
   private frameCount = 0;
 
   constructor(private readonly scenario: Scenario) {
     for (const n of scenario.network.nodes) {
-      if (isL3(n)) this.hosts.set(n.id, new Host(this, n));
+      this.nodes.set(n.id, isL3(n) ? new Host(this, n) : new Switch(this, n));
     }
     for (const link of scenario.network.links) {
       const [a, b] = [parseRef(link.a), parseRef(link.b)];
@@ -153,12 +154,12 @@ class Simulation {
 
   private receive(node: string, dev: string, frame: Frame, link: string): void {
     this.emit(node, { kind: "frame.rx", dev, link, frame: frame.id });
-    const host = this.hosts.get(node);
-    if (host) this.schedule(PROCESSING_US, () => host.handleFrame(dev, frame));
+    const target = this.nodes.get(node);
+    if (target) this.schedule(PROCESSING_US, () => target.handleFrame(dev, frame));
   }
 
   private hostOwning(ip: string): Host {
-    for (const h of this.hosts.values()) if (h.ownsIp(ip)) return h;
+    for (const n of this.nodes.values()) if (n instanceof Host && n.ownsIp(ip)) return n;
     throw new Error(`no host owns ${ip}`);
   }
 }
@@ -392,13 +393,26 @@ class Host {
 
   private handleIp(frame: Frame, packet: Packet): void {
     if (!this.ownsIp(packet.header.dst)) {
-      this.drop({ frame: frame.id, packet: packetId(packet.header) }, "not-our-ip");
+      if (this.config.kind === "router") this.forward(packet);
+      else this.drop({ frame: frame.id, packet: packetId(packet.header) }, "not-our-ip");
       return;
     }
     if (packet.header.protocol !== PROTO_ICMP) return;
     const { message } = decodeIcmp(packet.payload);
     if (message.type === "echo-request") this.answerEcho(packet, message);
     else this.receiveIcmp(packet, message);
+  }
+
+  /** What makes a router a router: lower the TTL and send the packet on with its own lookup. */
+  private forward(packet: Packet): void {
+    const id = packetId(packet.header);
+    const after = packet.header.ttl - 1;
+    this.sim.emit(this.id, { kind: "ttl.decrement", packet: id, before: packet.header.ttl, after });
+    if (after <= 0) {
+      this.drop({ packet: id }, "ttl");
+      return;
+    }
+    this.sendIp({ header: { ...packet.header, ttl: after }, payload: packet.payload });
   }
 
   private answerEcho(request: Packet, echo: EchoMessage): void {
@@ -438,5 +452,36 @@ class Host {
 
   private drop(what: { frame?: string; packet?: string }, reason: DropReason): void {
     this.sim.emit(this.id, { kind: "drop", ...what, reason });
+  }
+}
+
+/** A learning switch: remembers which port each source MAC arrived on, forwards or floods by destination. */
+class Switch {
+  private readonly table = new Map<string, string>();
+  private readonly ports: string[];
+
+  constructor(
+    private readonly sim: Simulation,
+    readonly config: SwitchNode,
+  ) {
+    this.ports = config.interfaces.map((p) => p.name);
+  }
+
+  get id(): string {
+    return this.config.id;
+  }
+
+  handleFrame(dev: string, frame: Frame): void {
+    const { header } = decodeEthernet(frame.bytes);
+    if (this.table.get(header.src) !== dev) {
+      this.table.set(header.src, dev);
+      this.sim.emit(this.id, { kind: "switch.learn", mac: header.src, port: dev });
+    }
+    const known = header.dst === BROADCAST_MAC ? undefined : this.table.get(header.dst);
+    const out = known ? [known] : this.ports.filter((p) => p !== dev);
+    if (known)
+      this.sim.emit(this.id, { kind: "switch.forward", frame: frame.id, in: dev, out: known });
+    else this.sim.emit(this.id, { kind: "switch.flood", frame: frame.id, in: dev, out });
+    for (const port of out) this.sim.transmit(this.id, port, frame);
   }
 }
