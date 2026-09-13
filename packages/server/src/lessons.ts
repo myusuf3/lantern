@@ -9,11 +9,20 @@ export interface LessonSummary {
   show: { arp: boolean; routes: boolean };
 }
 
-export interface Lesson extends LessonSummary {
+export interface Scene {
+  id: string;
+  title: string;
   /** The scenario as authored, so the client can post it to /api/runs unchanged. */
   scenario: unknown;
-  /** Markdown per narration slot, keyed by file name without extension: `intro`, `arp.miss`, ... */
+  /**
+   * Markdown per narration slot, keyed by file name without extension: `intro`, `arp.miss`, and
+   * node-specific `arp.miss@laptop`, which the client prefers over the plain kind for that node.
+   */
   narration: Record<string, string>;
+}
+
+export interface Lesson extends LessonSummary {
+  scenes: Scene[];
 }
 
 export interface GlossaryEntry {
@@ -21,12 +30,18 @@ export interface GlossaryEntry {
   body: string;
 }
 
+interface SceneRef {
+  id: string;
+  title: string;
+}
+
 const LESSON_ID = /^[a-z0-9][a-z0-9-]*$/;
 const GLOSSARY_DIR = "glossary";
 
 /**
- * One directory per lesson: `lesson.json`, `scenario.json`, and a `narration/` folder of markdown.
- * A sibling `glossary/` folder holds one markdown file per term, shared by every lesson.
+ * One directory per lesson holding `lesson.json` and `scenes/<id>/` folders, each with a
+ * `scenario.json` and a `narration/` folder of markdown. A sibling `glossary/` folder holds one
+ * markdown file per term, shared by every lesson.
  */
 export class Lessons {
   constructor(private readonly dir: string) {}
@@ -35,14 +50,27 @@ export class Lessons {
     const entries = await readdir(this.dir, { withFileTypes: true });
     const ids = entries.filter((e) => e.isDirectory() && LESSON_ID.test(e.name)).map((e) => e.name);
     const found = await Promise.all(ids.sort().map((id) => this.meta(id)));
-    return found.filter((l): l is LessonSummary => l !== undefined);
+    return found.flatMap((l) =>
+      l ? [{ id: l.id, title: l.title, summary: l.summary, show: l.show }] : [],
+    );
   }
 
   async get(id: string): Promise<Lesson | undefined> {
     const meta = await this.meta(id);
     if (!meta) return undefined;
-    const scenario = JSON.parse(await readFile(join(this.dir, id, "scenario.json"), "utf8"));
-    return { ...meta, scenario, narration: await this.markdownIn(join(this.dir, id, "narration")) };
+    const scenes = await Promise.all(
+      meta.scenes.map(async ({ id: sceneId, title }) => {
+        const dir = join(this.dir, id, "scenes", sceneId);
+        const scenario = JSON.parse(await readFile(join(dir, "scenario.json"), "utf8"));
+        return {
+          id: sceneId,
+          title,
+          scenario,
+          narration: await this.markdownIn(join(dir, "narration")),
+        };
+      }),
+    );
+    return { ...meta, scenes };
   }
 
   /** Every term. A file's first line is `# Title`; the rest is the definition. */
@@ -56,17 +84,20 @@ export class Lessons {
     );
   }
 
-  private async meta(id: string): Promise<LessonSummary | undefined> {
+  private async meta(id: string): Promise<(LessonSummary & { scenes: SceneRef[] }) | undefined> {
     if (!LESSON_ID.test(id) || id === GLOSSARY_DIR) return undefined;
     try {
-      const { title, summary, show } = JSON.parse(
-        await readFile(join(this.dir, id, "lesson.json"), "utf8"),
-      );
+      const raw = JSON.parse(await readFile(join(this.dir, id, "lesson.json"), "utf8"));
+      const scenes: SceneRef[] = (raw.scenes ?? []).map((s: { id: unknown; title?: unknown }) => ({
+        id: String(s.id),
+        title: String(s.title ?? s.id),
+      }));
       return {
         id,
-        title: String(title),
-        summary: String(summary ?? ""),
-        show: { arp: Boolean(show?.arp), routes: Boolean(show?.routes) },
+        title: String(raw.title),
+        summary: String(raw.summary ?? ""),
+        show: { arp: Boolean(raw.show?.arp), routes: Boolean(raw.show?.routes) },
+        scenes,
       };
     } catch {
       return undefined;
