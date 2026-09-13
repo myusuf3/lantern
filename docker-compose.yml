@@ -1,0 +1,14 @@
+# Production deployment. Caddy on the host terminates TLS and proxies to
+# 127.0.0.1:3000, so the app binds to loopback only. Docker's published ports
+# bypass ufw, which is why the bind address matters here.
+services:
+  lantern:
+    image: ghcr.io/myusuf3/lantern:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
