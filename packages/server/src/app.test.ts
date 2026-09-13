@@ -221,11 +221,13 @@ describe("GET /api/captures", () => {
       }[];
     };
     expect(page.markdown).toMatch(/Wireshark/);
-    expect(page.captures.map((c) => `${c.lesson}/${c.scene}`)).toEqual([
+    const ids = page.captures.map((c) => `${c.lesson}/${c.scene}`);
+    expect(ids.slice(0, 3)).toEqual([
       "01-two-hosts/01-cable",
       "02-through-a-router/01-router",
       "02-through-a-router/02-switch",
     ]);
+    expect(ids).toContain("03-many-routers/01-three-routers");
     const [first] = page.captures;
     expect(first?.lessonTitle).toBe("Two hosts and a cable");
     expect(first?.frames).toEqual([

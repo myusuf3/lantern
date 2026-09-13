@@ -1,0 +1,1 @@
+Time is up at this router, so it kills the probe and sends a [[time exceeded]] back from the interface the probe arrived on. That source address is the whole point: it names this router to the laptop.

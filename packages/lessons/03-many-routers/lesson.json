@@ -1,0 +1,30 @@
+{
+  "title": "Many routers",
+  "summary": "Three routers between the laptop and the server, none of which knows the whole path. How a packet finds its way, how it counts its steps, and what happens when it runs out.",
+  "show": {
+    "arp": false,
+    "routes": true
+  },
+  "scenes": [
+    {
+      "id": "01-three-routers",
+      "title": "Three routers"
+    },
+    {
+      "id": "02-time-to-live",
+      "title": "Time to live"
+    },
+    {
+      "id": "03-a-loop",
+      "title": "A loop"
+    },
+    {
+      "id": "04-two-ways-home",
+      "title": "Two ways home"
+    },
+    {
+      "id": "05-traceroute",
+      "title": "Traceroute"
+    }
+  ]
+}

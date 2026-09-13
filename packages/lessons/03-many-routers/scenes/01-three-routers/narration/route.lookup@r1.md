@@ -1,0 +1,1 @@
+Now r1 asks its own [[routing table]]. It has no cable to 10.0.4.x, but it has a row that says: for that subnet, send to 10.0.2.2. That is r2. r1 does not know what lies beyond r2, and it does not need to.

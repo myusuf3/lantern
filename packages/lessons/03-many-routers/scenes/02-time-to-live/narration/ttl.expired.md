@@ -1,0 +1,1 @@
+Zero. The router will not forward a packet whose time is up, but it does not stay quiet about it either. It builds a new packet, an [[ICMP]] [[time exceeded]], addressed to the original sender, and inside it quotes the header of the packet that just died. The reply comes from 10.0.2.2, the interface the packet arrived on, so the sender learns not just that it died but where.

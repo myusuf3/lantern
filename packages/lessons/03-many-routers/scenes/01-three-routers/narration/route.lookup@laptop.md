@@ -1,0 +1,1 @@
+The laptop does what it did in lesson 2: 10.0.4.10 is not on my cable, so use the [[default route]] and hand it to the [[gateway]]. The laptop has no idea there are three routers ahead. It only ever knows the first one.

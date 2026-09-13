@@ -1,0 +1,1 @@
+The laptop was waiting for an echo reply and got a time exceeded instead, from 10.0.2.2. It matches the quoted header to the ping it sent and reports: your packet died at hop 2, at this address. `ping` prints that as "Time to live exceeded".

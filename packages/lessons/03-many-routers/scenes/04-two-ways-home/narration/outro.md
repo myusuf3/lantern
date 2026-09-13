@@ -1,0 +1,1 @@
+A routing table is not a map. It is a list of opinions with a tie-breaker. Longest match first, then lowest metric, then whichever row came first. On the real internet those opinions are traded between routers by protocols with names like BGP, but the rule the packet follows is the one you just watched.

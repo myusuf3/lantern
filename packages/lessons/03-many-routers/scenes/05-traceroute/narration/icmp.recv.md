@@ -1,0 +1,1 @@
+An answer. If it is a time exceeded, the laptop writes down who sent it, that is one line of the trace, and sends the next probe with the TTL one higher. If it is the echo reply, the destination itself answered and the trace is complete.

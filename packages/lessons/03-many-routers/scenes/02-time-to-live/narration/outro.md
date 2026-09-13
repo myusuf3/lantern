@@ -1,0 +1,1 @@
+TTL is a budget of hops. A router spends one on every packet it forwards, and a router that would spend the last one kills the packet and sends word back instead. Two scenes from now you will see the tool that is built entirely out of that behaviour. First, the reason it exists at all.

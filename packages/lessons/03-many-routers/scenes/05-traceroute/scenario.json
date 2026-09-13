@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "network": {
+    "warm_arp": true,
+    "nodes": [
+      { "id": "laptop", "kind": "host", "interfaces": [{ "name": "eth0", "link": "l1" }] },
+      {
+        "id": "r1",
+        "kind": "router",
+        "interfaces": [
+          { "name": "eth0", "link": "l1" },
+          { "name": "eth1", "link": "l2" },
+          { "name": "eth2", "link": "l5" }
+        ],
+        "routes": [
+          { "dst": "10.0.4.0/24", "via": "10.0.2.2", "metric": 20 },
+          { "dst": "10.0.4.0/24", "via": "10.0.5.2", "metric": 10 }
+        ]
+      },
+      {
+        "id": "r2",
+        "kind": "router",
+        "interfaces": [{ "name": "eth0", "link": "l2" }, { "name": "eth1", "link": "l3" }]
+      },
+      {
+        "id": "r3",
+        "kind": "router",
+        "interfaces": [
+          { "name": "eth0", "link": "l3" },
+          { "name": "eth1", "link": "l4" },
+          { "name": "eth2", "link": "l5" }
+        ],
+        "routes": [{ "dst": "10.0.1.0/24", "via": "10.0.5.1", "metric": 10 }]
+      },
+      { "id": "server", "kind": "host", "interfaces": [{ "name": "eth0", "link": "l4" }] }
+    ],
+    "links": [
+      { "id": "l1", "a": "laptop/eth0", "b": "r1/eth0" },
+      { "id": "l2", "a": "r1/eth1", "b": "r2/eth0" },
+      { "id": "l3", "a": "r2/eth1", "b": "r3/eth0" },
+      { "id": "l4", "a": "r3/eth1", "b": "server/eth0" },
+      { "id": "l5", "a": "r1/eth2", "b": "r3/eth2" }
+    ]
+  },
+  "actions": [
+    {
+      "action": "traceroute",
+      "from": { "name": "laptop" },
+      "to": { "name": "server" },
+      "max_ttl": 8
+    }
+  ]
+}

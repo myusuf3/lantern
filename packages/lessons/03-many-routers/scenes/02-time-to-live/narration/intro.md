@@ -1,0 +1,1 @@
+Same network, same ping, one change: the laptop sends it with a [[TTL]] of 2 instead of 64. Two hops of life, three routers to cross. It will not make it, and that is the point. Watch what the router that kills it does next.

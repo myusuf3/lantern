@@ -1,0 +1,1 @@
+A new cable, straight from r1 to r3. Now r1 has two ways to reach the server's subnet: the long way through r2, and the short way over the new cable. Its [[routing table]] holds both rows. Something has to pick.

@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "network": {
+    "warm_arp": true,
+    "nodes": [
+      { "id": "laptop", "kind": "host", "interfaces": [{ "name": "eth0", "link": "l1" }] },
+      {
+        "id": "r1",
+        "kind": "router",
+        "interfaces": [{ "name": "eth0", "link": "l1" }, { "name": "eth1", "link": "l2" }]
+      },
+      {
+        "id": "r2",
+        "kind": "router",
+        "interfaces": [{ "name": "eth0", "link": "l2" }, { "name": "eth1", "link": "l3" }]
+      },
+      {
+        "id": "r3",
+        "kind": "router",
+        "interfaces": [{ "name": "eth0", "link": "l3" }, { "name": "eth1", "link": "l4" }]
+      },
+      { "id": "server", "kind": "host", "interfaces": [{ "name": "eth0", "link": "l4" }] }
+    ],
+    "links": [
+      { "id": "l1", "a": "laptop/eth0", "b": "r1/eth0" },
+      { "id": "l2", "a": "r1/eth1", "b": "r2/eth0" },
+      { "id": "l3", "a": "r2/eth1", "b": "r3/eth0" },
+      { "id": "l4", "a": "r3/eth1", "b": "server/eth0" }
+    ]
+  },
+  "actions": [{ "action": "ping", "from": { "name": "laptop" }, "to": { "name": "server" } }]
+}

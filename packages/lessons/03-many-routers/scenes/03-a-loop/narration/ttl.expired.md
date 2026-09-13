@@ -1,0 +1,1 @@
+Zero, at last. The router kills the packet and sends a [[time exceeded]] back to the laptop, exactly as in the last scene. Without this rule the packet would circle between r1 and r2 until one of them was unplugged, and every packet the laptop sent after it would join the loop.

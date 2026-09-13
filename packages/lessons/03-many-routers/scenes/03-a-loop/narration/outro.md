@@ -1,0 +1,1 @@
+Routing loops happen. Tables are written by people and by protocols, and both make mistakes. TTL is the rule that turns "forever" into "a few milliseconds and an error message". Now the other side of routing tables: what happens when there is more than one right answer.

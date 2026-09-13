@@ -1,0 +1,1 @@
+Two rows match 10.0.4.0/24. Look at the [[metric]] written on each cable leaving r1: 10 for the direct cable to r3, 20 for the one to r2. Lower wins. The metric is not measured; it is an opinion, typed in by whoever set up the router, about which path is cheaper. Change the numbers and the packet changes course without anyone touching a cable.
