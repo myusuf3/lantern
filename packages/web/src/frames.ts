@@ -1,6 +1,12 @@
 import type { FrameRecord } from "@lantern/engine";
 
-/** Short label for a frame token on the wire and the inspector title. */
+/** The token label on the cable: what the frame is, and its TTL when it carries an IP packet. */
+export function cableLabel(frame: FrameRecord): string {
+  const ttl = frame.summary.ip?.ttl;
+  return ttl === undefined ? frameLabel(frame) : `${frameLabel(frame)} · TTL ${ttl}`;
+}
+
+/** Short label for a frame: what it is. */
 export function frameLabel(frame: FrameRecord): string {
   const { arp, icmp } = frame.summary;
   if (arp) return `ARP ${arp.op}`;

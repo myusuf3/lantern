@@ -54,3 +54,31 @@ export function arpTableAt(run: RunResult, turns: Turn[], node: string, index: n
   });
   return [...rows.values()];
 }
+
+export interface MacRow {
+  mac: string;
+  port: string;
+  /** Written during the turn being shown. */
+  fresh: boolean;
+}
+
+/** A switch's MAC table as it stands after turn `index`. */
+export function macTableAt(turns: Turn[], node: string, index: number): MacRow[] {
+  const rows = new Map<string, MacRow>();
+  turns.slice(0, index + 1).forEach((turn, i) => {
+    if (turn.node !== node) return;
+    for (const e of turn.events) {
+      if (e.kind === "switch.learn")
+        rows.set(e.mac, { mac: e.mac, port: e.port, fresh: i === index });
+    }
+  });
+  return [...rows.values()];
+}
+
+/** The route a node chose during a turn, for highlighting in its routing table. */
+export function routeUsedIn(
+  turn: Turn | undefined,
+): { dst: string; via?: string | undefined; dev: string } | undefined {
+  const lookup = turn?.events.find((e) => e.kind === "route.lookup");
+  return lookup?.kind === "route.lookup" && lookup.route ? lookup.route : undefined;
+}

@@ -6,8 +6,15 @@ afterEach(cleanup);
 
 // React Flow measures nodes with browser APIs jsdom lacks. These shims follow the library's own
 // testing guidance so the real components render in tests.
+type Entry = { target: Element; contentRect: { width: number; height: number } };
 class ResizeObserver {
-  observe() {}
+  constructor(private readonly callback: (entries: Entry[], observer: ResizeObserver) => void) {}
+  /** Report a size straight away so React Flow treats nodes as measured and draws edges. */
+  observe(target: Element) {
+    queueMicrotask(() =>
+      this.callback([{ target, contentRect: { width: 100, height: 100 } }], this),
+    );
+  }
   unobserve() {}
   disconnect() {}
 }

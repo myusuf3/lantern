@@ -68,3 +68,38 @@ describe("arpTableAt", () => {
     ]);
   });
 });
+
+describe("macTableAt", () => {
+  it("grows as switch.learn events pass", async () => {
+    const { macTableAt } = await import("./steps.js");
+    const viaSwitch = simulate(
+      loadScenario({
+        version: 1,
+        network: {
+          nodes: [
+            { id: "a", kind: "host", interfaces: [{ name: "eth0", link: "l1" }] },
+            {
+              id: "sw",
+              kind: "switch",
+              interfaces: [
+                { name: "p1", link: "l1" },
+                { name: "p2", link: "l2" },
+              ],
+            },
+            { id: "b", kind: "host", interfaces: [{ name: "eth0", link: "l2" }] },
+          ],
+          links: [
+            { id: "l1", a: "a/eth0", b: "sw/p1" },
+            { id: "l2", a: "sw/p2", b: "b/eth0" },
+          ],
+        },
+        actions: [{ action: "ping", from: { name: "a" }, to: { name: "b" } }],
+      }),
+    );
+    const turns = turnsOf(viaSwitch.events);
+    expect(macTableAt(turns, "sw", 1)).toEqual([]);
+    expect(macTableAt(turns, "sw", 2)).toEqual([
+      { mac: "02:00:00:00:00:01", port: "p1", fresh: true },
+    ]);
+  });
+});

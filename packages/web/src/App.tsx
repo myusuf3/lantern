@@ -1,43 +1,191 @@
 import type { FrameRecord } from "@lantern/engine";
 import { useEffect, useMemo, useState } from "react";
-import { api, type Glossary, type Lesson, type Run } from "./api.js";
-import { frameLabel, headersOf } from "./frames.js";
+import {
+  api,
+  type Glossary,
+  type Lesson,
+  type LessonSummary,
+  type Run,
+  type Scene as SceneData,
+} from "./api.js";
+import { Captures } from "./Captures.js";
+import { cableLabel, frameLabel, headersOf } from "./frames.js";
+import { Home } from "./Home.js";
 import { Prose } from "./Prose.js";
 import { Scene } from "./Scene.js";
-import { arpTableAt, turnsOf } from "./steps.js";
+import { arpTableAt, macTableAt, routeUsedIn, turnsOf } from "./steps.js";
+
+/** The hashes of the two standalone pages. */
+const HOME = "home";
+const CAPTURES = "captures";
 
 /** Pause between steps when the reader presses play rather than stepping. */
 export const PLAY_STEP_MS = 1800;
-const LESSON_ID = "01-two-hosts";
+
+/** `#lesson-id/scene-id` in the URL keeps the reader's place across reloads. */
+function readHash(): { lesson?: string; scene?: string } {
+  const [lesson, scene] = window.location.hash.replace(/^#/, "").split("/");
+  return { ...(lesson ? { lesson } : {}), ...(scene ? { scene } : {}) };
+}
 
 export function App() {
-  const [lesson, setLesson] = useState<Lesson>();
+  const [lessons, setLessons] = useState<LessonSummary[]>();
   const [glossary, setGlossary] = useState<Glossary>({});
-  const [run, setRun] = useState<Run>();
+  const [place, setPlace] = useState(readHash);
+  const [lesson, setLesson] = useState<Lesson>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
-    Promise.all([api.lesson(LESSON_ID), api.glossary()])
-      .then(async ([l, g]) => {
-        setLesson(l);
+    Promise.all([api.lessons(), api.glossary()])
+      .then(([l, g]) => {
+        setLessons(l);
         setGlossary(g);
-        setRun(await api.run(l.scenario));
       })
       .catch((e: unknown) => setError(String(e)));
+    const onHash = () => setPlace(readHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  const atCaptures = place.lesson === CAPTURES;
+  const atHome = place.lesson === undefined || place.lesson === HOME;
+  const lessonId = atCaptures || atHome ? undefined : place.lesson;
+  useEffect(() => {
+    if (!lessonId) return;
+    setLesson(undefined);
+    api
+      .lesson(lessonId)
+      .then(setLesson)
+      .catch((e: unknown) => setError(String(e)));
+  }, [lessonId]);
+
+  const go = (nextLesson: string, nextScene?: string) => {
+    window.location.hash = nextScene ? `${nextLesson}/${nextScene}` : nextLesson;
+    setPlace({ lesson: nextLesson, ...(nextScene ? { scene: nextScene } : {}) });
+  };
+
   if (error) return <main className="page">Could not load the lesson: {error}</main>;
-  if (!lesson || !run) return <main className="page">Loading…</main>;
-  return <LessonView lesson={lesson} glossary={glossary} run={run} />;
+  if (!lessons) return <main className="page">Loading…</main>;
+  // Plain fragment links: the hashchange listener above turns them into navigation.
+  const nav = (
+    <nav className="lessons" aria-label="Lessons">
+      <a href={`#${HOME}`} className={`site${atHome ? " current" : ""}`}>
+        One frame at a time
+      </a>
+      {lessons.map((l) => (
+        <a
+          key={l.id}
+          href={`#${l.id}`}
+          className={!atCaptures && l.id === lessonId ? "current" : ""}
+        >
+          {l.title}
+        </a>
+      ))}
+    </nav>
+  );
+  if (atHome) {
+    return (
+      <div className="page">
+        {nav}
+        <Home lessons={lessons} glossary={glossary} onStart={(id) => go(id)} />
+      </div>
+    );
+  }
+  if (atCaptures) {
+    return (
+      <div className="page">
+        {nav}
+        <Captures glossary={glossary} />
+      </div>
+    );
+  }
+  if (!lesson) return <main className="page">Loading…</main>;
+  const sceneIndex = Math.max(
+    0,
+    lesson.scenes.findIndex((s) => s.id === place.scene),
+  );
+  const scene = lesson.scenes[sceneIndex];
+  if (!scene) return <main className="page">This lesson has no scenes yet.</main>;
+  const nextScene = lesson.scenes[sceneIndex + 1];
+  const nextLesson = lessons[lessons.findIndex((l) => l.id === lesson.id) + 1];
+  const following = nextScene
+    ? { label: `Next scene: ${nextScene.title}`, hash: `#${lesson.id}/${nextScene.id}` }
+    : nextLesson
+      ? { label: `Next lesson: ${nextLesson.title}`, hash: `#${nextLesson.id}` }
+      : { label: "One more thing", hash: `#${CAPTURES}` };
+
+  return (
+    <div className="page">
+      {nav}
+      <header className="masthead">
+        <h1>{lesson.title}</h1>
+        <p className="summary">{lesson.summary}</p>
+        {lesson.scenes.length > 1 && (
+          <p className="scenes">
+            {lesson.scenes.map((s, i) => (
+              <button
+                type="button"
+                key={s.id}
+                className={i === sceneIndex ? "current" : ""}
+                onClick={() => go(lesson.id, s.id)}
+              >
+                Scene {i + 1}: {s.title}
+              </button>
+            ))}
+          </p>
+        )}
+      </header>
+      <SceneView
+        key={`${lesson.id}/${scene.id}`}
+        lesson={lesson}
+        scene={scene}
+        glossary={glossary}
+        following={following}
+      />
+    </div>
+  );
 }
 
-interface LessonViewProps {
+interface SceneViewProps {
   lesson: Lesson;
+  scene: SceneData;
+  glossary: Glossary;
+  /** Where the reader goes after the outro: the next scene, the next lesson, or the reveal. */
+  following: { label: string; hash: string };
+}
+
+function SceneView({ lesson, scene, glossary, following }: SceneViewProps) {
+  const [run, setRun] = useState<Run>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    api
+      .run(scene.scenario)
+      .then(setRun)
+      .catch((e: unknown) => setError(String(e)));
+  }, [scene]);
+  if (error) return <p>Could not simulate this scene: {error}</p>;
+  if (!run) return <p>Simulating…</p>;
+  return (
+    <Stepper
+      show={lesson.show}
+      narration={scene.narration}
+      glossary={glossary}
+      run={run}
+      following={following}
+    />
+  );
+}
+
+interface StepperProps {
+  show: Lesson["show"];
+  narration: Record<string, string>;
   glossary: Glossary;
   run: Run;
+  /** Where the reader goes after the outro: the next scene, the next lesson, or the reveal. */
+  following: { label: string; hash: string };
 }
 
-function LessonView({ lesson, glossary, run }: LessonViewProps) {
+function Stepper({ show, narration, glossary, run, following }: StepperProps) {
   const turns = useMemo(() => turnsOf(run.events), [run]);
   // -1 is the intro, turns.length is the outro.
   const [step, setStep] = useState(-1);
@@ -57,15 +205,25 @@ function LessonView({ lesson, glossary, run }: LessonViewProps) {
     return () => clearTimeout(t);
   }, [playing, step, turns.length]);
 
-  const arpTables = useMemo(() => {
-    if (!lesson.show.arp) return undefined;
-    const at = Math.min(step, turns.length - 1);
-    return Object.fromEntries(
-      run.network.nodes
-        .filter((n) => n.kind !== "switch")
-        .map((n) => [n.id, arpTableAt(run, turns, n.id, at)]),
-    );
-  }, [lesson, run, turns, step]);
+  const shown = Math.min(step, turns.length - 1);
+  const arpTables = useMemo(
+    () =>
+      Object.fromEntries(
+        run.network.nodes
+          .filter((n) => n.kind !== "switch")
+          .map((n) => [n.id, arpTableAt(run, turns, n.id, shown)]),
+      ),
+    [run, turns, shown],
+  );
+  const macTables = useMemo(
+    () =>
+      Object.fromEntries(
+        run.network.nodes
+          .filter((n) => n.kind === "switch")
+          .map((n) => [n.id, macTableAt(turns, n.id, shown)]),
+      ),
+    [run, turns, shown],
+  );
 
   const frameId = turn?.arriving?.frame ?? turn?.sent;
   const frame: FrameRecord | undefined = frameId ? run.frames[frameId] : undefined;
@@ -74,44 +232,45 @@ function LessonView({ lesson, glossary, run }: LessonViewProps) {
       ? {
           link: turn.arriving.link,
           from: turn.arriving.from,
-          label: frameLabel(frame),
+          label: cableLabel(frame),
           key: `${step}`,
         }
       : undefined;
 
+  // One slot per event kind in the turn; a node-specific slot wins over the plain one.
   const slots = atIntro
     ? ["intro"]
     : atOutro
       ? ["outro"]
       : [...new Set(turn?.events.map((e) => e.kind))];
-  const narration = slots.flatMap((slot) => {
-    const md = lesson.narration[slot];
+  const prose = slots.flatMap((slot) => {
+    const md = (turn && narration[`${slot}@${turn.node}`]) ?? narration[slot];
     return md ? [{ slot, md }] : [];
   });
 
   return (
-    <div className="page">
-      <header className="masthead">
-        <h1>{lesson.title}</h1>
-        <p className="summary">{lesson.summary}</p>
-      </header>
-
+    <>
       <Scene
         network={run.network}
+        show={show}
         arpTables={arpTables}
+        macTables={macTables}
         activeNode={turn?.node}
+        activeRoute={routeUsedIn(turn)}
         inFlight={inFlight}
       />
 
       <section className="panel">
         <div className="narration">
-          {narration.map(({ slot, md }) => (
+          {prose.map(({ slot, md }) => (
             <Prose key={`${step}:${slot}`} markdown={md} glossary={glossary} />
           ))}
           {atOutro && (
-            <a className="download" href={api.pcapUrl(run.id)} download={`lantern-${run.id}.pcap`}>
-              Download the capture (.pcap)
-            </a>
+            <div className="outro-actions">
+              <a className="download" href={following.hash}>
+                {following.label}
+              </a>
+            </div>
           )}
         </div>
         {frame && <FrameInspector frame={frame} glossary={glossary} />}
@@ -150,7 +309,7 @@ function LessonView({ lesson, glossary, run }: LessonViewProps) {
           </>
         )}
       </footer>
-    </div>
+    </>
   );
 }
 
